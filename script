@@ -1,10 +1,20 @@
 --========================================================--
 --  Onrusha Hub — Survive Your Ideas
 --========================================================--
--- AUTOEXEC: положи этот файл в папку executor/autoexec/ чтобы
--- скрипт запускался при каждом инжекте. Или используй queue_on_teleport
--- в конце скрипта — он перезапускает скрипт при переходе в матч.
---========================================================--
+local TARGET_PLACE_ID = 77900175935766
+local HUB_NAME        = "Onrusha Hub"
+local STATE_KEY       = "OnrushaHubState"
+
+if game.PlaceId ~= TARGET_PLACE_ID then
+    return warn("[Onrusha Hub] Not in Survive Your Ideas. Script aborted.")
+end
+
+if _G[STATE_KEY] and _G[STATE_KEY].active then
+    warn("[Onrusha Hub] Already running — skipping.")
+    return
+end
+_G[STATE_KEY] = { active = true, closed = false }
+
 local Onrusha = loadstring(game:HttpGet("https://raw.githubusercontent.com/Andreusha1/OnrushaHub/refs/heads/main/script"))()
 
 local Players           = game:GetService("Players")
@@ -24,13 +34,26 @@ local PlayerGui   = LocalPlayer:WaitForChild("PlayerGui")
 
 local SETTINGS_FILE   = "OnrushaHub_SYI.json"
 local IS_TOUCH        = UserInputService.TouchEnabled
-local LOBBY_PLACE_ID  = 77900175935766
-local MATCH_PLACE_ID  = 109001332046330
 
 local connections = {}
 local features    = {}
 local wig         = {}
-local env         = (getgenv and getgenv()) or _G
+--========================================================--
+
+--========================================================--
+--  CLEANUP OLD GUIS
+--========================================================--
+local function destroyOldGuis()
+    local guiParent = (gethui and gethui()) or CoreGui
+    for _, parent in ipairs({ CoreGui, PlayerGui, guiParent }) do
+        for _, gui in ipairs(parent:GetChildren()) do
+            if gui:IsA("ScreenGui") and gui.Name:find("Onrusha") then
+                pcall(function() gui:Destroy() end)
+            end
+        end
+    end
+end
+destroyOldGuis()
 --========================================================--
 
 --========================================================--
@@ -79,7 +102,6 @@ end
 --  SETTINGS
 --========================================================--
 local settings = { values = {}, toggles = {} }
-local settingsLoaded = false
 
 local function loadSettings()
     if not (isfile and readfile) then return end
@@ -89,7 +111,6 @@ local function loadSettings()
     if ok and type(data) == "table" then
         settings.values  = type(data.values)  == "table" and data.values  or {}
         settings.toggles = type(data.toggles) == "table" and data.toggles or {}
-        settingsLoaded   = true
     end
 end
 
@@ -104,7 +125,6 @@ local function saveSettings()
 end
 
 local function getNum(key, default) return tonumber(settings.values[key]) or default end
-
 loadSettings()
 --========================================================--
 
@@ -113,7 +133,7 @@ loadSettings()
 --========================================================--
 local function createLobbyUI()
     local ui = Onrusha.Create({
-        Name = "Onrusha Hub — Lobby",
+        Name = HUB_NAME .. " — Lobby",
         Subtitle = "Survive Your Ideas",
         Open = true,
         ToggleKey = Enum.KeyCode.H,
@@ -130,7 +150,7 @@ local function createLobbyUI()
     })
 
     local function notify(text, kind)
-        ui:Notify({ Title = "Onrusha Hub", Description = tostring(text), Type = kind or "Info", Duration = 2 })
+        ui:Notify({ Title = HUB_NAME, Description = tostring(text), Type = kind or "Info", Duration = 2 })
     end
 
     local lobbyTab = ui:TabCreate({ Name = "Lobby", Icon = "L", Description = "Lobby tools" })
@@ -139,9 +159,7 @@ local function createLobbyUI()
     local itemsSec = lobbyTab:SectionCreate({ Name = "Auto Items", Side = "Left" })
     local codeSec  = lobbyTab:SectionCreate({ Name = "Codes", Side = "Right" })
 
-    --========================================================--
-    --  START GAME
-    --========================================================--
+    -- START GAME
     mainSec:ButtonCreate({
         Id = "lobby_start", Name = "Start Game",
         Description = "QueueRemotes.PlayJump:FireServer()", ButtonText = "Start",
@@ -151,14 +169,10 @@ local function createLobbyUI()
         if ev then ev:FireServer() notify("Game started!", "Success")
         else notify("PlayJump remote not found", "Error") end
     end)
-    --========================================================--
 
-    --========================================================--
-    --  AUTO BUY SPIN
-    --========================================================--
+    -- AUTO BUY SPIN
     local spinDelay = spinSec:SliderCreate({
-        Id = "spin_delay", Name = "Spin delay (s)",
-        Min = 1, Max = 50, Default = 1, Step = 1,
+        Id = "spin_delay", Name = "Spin delay (s)", Min = 1, Max = 50, Default = 1, Step = 1,
     })
     local spinEnabled, spinThread = false, nil
 
@@ -198,11 +212,8 @@ local function createLobbyUI()
             if spinThread then task.cancel(spinThread) spinThread = nil end
         end
     end)
-    --========================================================--
 
-    --========================================================--
-    --  AUTO BEST ITEMS
-    --========================================================--
+    -- AUTO BEST ITEMS
     local function getItemLibrary()
         local itemsFolder = ReplicatedStorage:FindFirstChild("Items")
         local lib = itemsFolder and itemsFolder:FindFirstChild("ItemLibrary")
@@ -330,11 +341,8 @@ local function createLobbyUI()
             if bestThread then pcall(task.cancel, bestThread) bestThread = nil end
         end
     end)
-    --========================================================--
 
-    --========================================================--
-    --  AUTO REDEEM CODES
-    --========================================================--
+    -- AUTO REDEEM CODES
     local CODES = { "BIG5", "NEWMAPSCOMING", "FIRSTUPDATE", "THANKYOU" }
     local codeDropdown = codeSec:DropdownCreate({
         Id = "codes_select", Name = "Select Code", Options = CODES, Default = CODES[1],
@@ -366,18 +374,24 @@ local function createLobbyUI()
         end
         notify("All codes redeemed", "Success")
     end)
-    --========================================================--
 
-    --========================================================--
-    --  RELEASE MOUSE ON CLOSE
-    --========================================================--
+    -- RELEASE MOUSE + MARK CLOSED
     do
         local origHide, origToggle = ui.Hide, ui.Toggle
         if type(origHide) == "function" then
-            ui.Hide = function(self) local ok, err = pcall(origHide, self) releaseMouse() return ok, err end
+            ui.Hide = function(self)
+                local ok, err = pcall(origHide, self)
+                releaseMouse()
+                _G[STATE_KEY].closed = true
+                return ok, err
+            end
         end
         if type(origToggle) == "function" then
-            ui.Toggle = function(self) local ok, err = pcall(origToggle, self) releaseMouse() return ok, err end
+            ui.Toggle = function(self)
+                local ok, err = pcall(origToggle, self)
+                releaseMouse()
+                return ok, err
+            end
         end
         track(UserInputService.InputBegan:Connect(function(input, gpe)
             if not gpe and input.KeyCode == Enum.KeyCode.H then
@@ -388,13 +402,12 @@ local function createLobbyUI()
 
     track(LocalPlayer.CharacterAdded:Connect(function()
         task.wait(2)
-        if isInMatch() then
+        if isInMatch() and not _G[STATE_KEY].closed then
             pcall(function() ui:Hide() end)
             releaseMouse()
             createFullUI()
         end
     end))
-    --========================================================--
 
     return ui
 end
@@ -406,8 +419,10 @@ end
 local fullUI = nil
 local function createFullUI()
     if fullUI then return end
+    if _G[STATE_KEY].closed then return end
+
     local ui = Onrusha.Create({
-        Name = "Onrusha Hub",
+        Name = HUB_NAME,
         Subtitle = "Survive Your Ideas",
         Open = true,
         ToggleKey = Enum.KeyCode.H,
@@ -425,12 +440,10 @@ local function createFullUI()
     fullUI = ui
 
     local function notify(text, kind)
-        ui:Notify({ Title = "Onrusha Hub", Description = tostring(text), Type = kind or "Info", Duration = 2 })
+        ui:Notify({ Title = HUB_NAME, Description = tostring(text), Type = kind or "Info", Duration = 2 })
     end
 
-    --========================================================--
-    --  HELPERS
-    --========================================================--
+    -- HELPERS
     local function makeToggle(section, id, name, desc, default, onEnable, onDisable)
         local t = section:ToggleCreate({ Id = id, Name = name, Description = desc, Default = default or false })
         local feature = { active = false, widget = t }
@@ -465,11 +478,8 @@ local function createFullUI()
         b:OnClick(callback)
         return b
     end
-    --========================================================--
 
-    --========================================================--
-    --  TABS
-    --========================================================--
+    -- TABS
     local tabs = {
         Player  = ui:TabCreate({ Name = "Player",  Icon = "P", Description = "Movement & utility" }),
         Combat  = ui:TabCreate({ Name = "Combat",  Icon = "C", Description = "Safety & Aimbot" }),
@@ -477,11 +487,8 @@ local function createFullUI()
         Mobile  = ui:TabCreate({ Name = "Mobile",  Icon = "M", Description = "On-screen toggle" }),
         Misc    = ui:TabCreate({ Name = "Misc",    Icon = "S", Description = "Connection & config" }),
     }
-    --========================================================--
 
-    --========================================================--
-    --  PLAYER TAB
-    --========================================================--
+    -- PLAYER TAB
     local pMove = tabs.Player:SectionCreate({ Name = "Movement", Side = "Left" })
     local pUtil = tabs.Player:SectionCreate({ Name = "Utility", Side = "Right" })
 
@@ -657,11 +664,8 @@ local function createFullUI()
     end, function()
         if clickTPConn then clickTPConn:Disconnect() clickTPConn = nil end
     end)
-    --========================================================--
 
-    --========================================================--
-    --  COMBAT TAB — SAFETY + AIMBOT (по вашему примеру)
-    --========================================================--
+    -- COMBAT TAB
     local cSafety    = tabs.Combat:SectionCreate({ Name = "Safety", Side = "Left" })
     local cAim       = tabs.Combat:SectionCreate({ Name = "Aimbot", Side = "Left" })
     local cAimTarget = tabs.Combat:SectionCreate({ Name = "Aimbot Settings", Side = "Right" })
@@ -802,9 +806,7 @@ local function createFullUI()
         arDisabled, arSeen = {}, {}
     end)
 
-    --========================================================--
-    --  AIMBOT (порт из вашего примера)
-    --========================================================--
+    -- AIMBOT
     wig.Aimbot = cAim:ToggleCreate({
         Id = "Aimbot.Enabled", Name = "Aimbot",
         Description = "Aim at the nearest target", Default = false,
@@ -828,31 +830,23 @@ local function createFullUI()
     local aimSettings = wig.Aimbot:CreateSettings({ Name = "Sensitivity" })
 
     wig.AimFOV = aimSettings:SliderCreate({
-        Id = "Aimbot.FOV", Name = "FOV Size",
-        Min = 10, Max = 500, Default = 150,
+        Id = "Aimbot.FOV", Name = "FOV Size", Min = 10, Max = 500, Default = 150,
     })
-
     wig.AimSmoothness = aimSettings:SliderCreate({
-        Id = "Aimbot.Smoothness", Name = "Smoothness (Lower is faster)",
-        Min = 1, Max = 100, Default = 20,
+        Id = "Aimbot.Smoothness", Name = "Smoothness (Lower is faster)", Min = 1, Max = 100, Default = 20,
     })
-
     wig.AimDistance = aimSettings:SliderCreate({
-        Id = "Aimbot.Distance", Name = "Max Distance (Studs)",
-        Min = 35, Max = 600, Default = 300,
+        Id = "Aimbot.Distance", Name = "Max Distance (Studs)", Min = 35, Max = 600, Default = 300,
     })
-
     wig.AimShoot = aimSettings:ToggleCreate({
         Id = "Aimbot.Shoot", Name = "Auto Shoot on Aim",
-        Description = "Fires tool when aiming for guaranteed hit", Default = false,
+        Description = "Fires tool when aiming", Default = false,
     })
 
     local uis = game:GetService("UserInputService")
     local runService = game:GetService("RunService")
     local camera = workspace.CurrentCamera
-
-    local aimActive = false
-    local keybindPressed = false
+    local aimActive, keybindPressed = false, false
 
     wig.AimKeybind:OnClick(function(active, key)
         if active then
@@ -865,8 +859,7 @@ local function createFullUI()
 
     uis.InputEnded:Connect(function(input, gpe)
         if gpe then return end
-        local currentKey = wig.AimKeybind:Get()
-        if input.KeyCode == currentKey then
+        if input.KeyCode == wig.AimKeybind:Get() then
             if wig.AimMode:Get() == "Hold Key" then keybindPressed = false end
         end
     end)
@@ -876,7 +869,7 @@ local function createFullUI()
     local function createFOVCircle()
         if fovCircle then fovCircle:Destroy() end
         fovCircle = Instance.new("ScreenGui")
-        fovCircle.Name = "AimbotFOV"
+        fovCircle.Name = "OnrushaAimbotFOV"
         fovCircle.IgnoreGuiInset = true
         fovCircle.ResetOnSpawn = false
         local frame = Instance.new("Frame")
@@ -894,7 +887,6 @@ local function createFullUI()
         stroke.Transparency = 0.5
         stroke.Parent = frame
         fovCircle.Parent = (gethui and gethui()) or CoreGui
-        return frame
     end
 
     local function updateFOVCircle()
@@ -902,8 +894,7 @@ local function createFullUI()
         local frame = fovCircle:FindFirstChild("Circle")
         if frame then
             local fov = wig.AimFOV:Get()
-            local size = fov * 2
-            frame.Size = UDim2.fromOffset(size, size)
+            frame.Size = UDim2.fromOffset(fov * 2, fov * 2)
             frame.Visible = wig.Aimbot:Get()
         end
     end
@@ -913,25 +904,22 @@ local function createFullUI()
         local shortestDistance = wig.AimFOV:Get()
         local centerX, centerY = camera.ViewportSize.X / 2, camera.ViewportSize.Y / 2
         local maxDistance = wig.AimDistance:Get()
-        local localChar = getChar()
-        local localRoot = localChar and localChar:FindFirstChild("HumanoidRootPart")
+        local localRoot = getHRP()
         for _, player in ipairs(Players:GetPlayers()) do
             if player ~= LocalPlayer and player.Character then
-                local partName = wig.AimPart:Get()
-                local targetPart = player.Character:FindFirstChild(partName) or player.Character:FindFirstChild("HumanoidRootPart")
+                local targetPart = player.Character:FindFirstChild(wig.AimPart:Get())
+                    or player.Character:FindFirstChild("HumanoidRootPart")
                 if targetPart then
                     local humanoid = player.Character:FindFirstChildOfClass("Humanoid")
-                    if humanoid and humanoid.Health > 0 then
-                        if localRoot then
-                            local dist3D = (targetPart.Position - localRoot.Position).Magnitude
-                            if dist3D <= maxDistance then
-                                local screenPos, onScreen = camera:WorldToViewportPoint(targetPart.Position)
-                                if onScreen then
-                                    local dist2D = (Vector2.new(screenPos.X, screenPos.Y) - Vector2.new(centerX, centerY)).Magnitude
-                                    if dist2D < shortestDistance then
-                                        shortestDistance = dist2D
-                                        closestPlayer = player
-                                    end
+                    if humanoid and humanoid.Health > 0 and localRoot then
+                        local dist3D = (targetPart.Position - localRoot.Position).Magnitude
+                        if dist3D <= maxDistance then
+                            local screenPos, onScreen = camera:WorldToViewportPoint(targetPart.Position)
+                            if onScreen then
+                                local dist2D = (Vector2.new(screenPos.X, screenPos.Y) - Vector2.new(centerX, centerY)).Magnitude
+                                if dist2D < shortestDistance then
+                                    shortestDistance = dist2D
+                                    closestPlayer = player
                                 end
                             end
                         end
@@ -942,32 +930,6 @@ local function createFullUI()
         return closestPlayer
     end
 
-    local function equipGun()
-        local char = getChar()
-        local backpack = LocalPlayer:FindFirstChild("Backpack")
-        if not char or not backpack then return nil end
-        local gun = char:FindFirstChild("Gun")
-        if gun then return gun end
-        local bg = backpack:FindFirstChild("Gun")
-        if bg then
-            local humanoid = char:FindFirstChildOfClass("Humanoid")
-            if humanoid then humanoid:EquipTool(bg) return bg end
-        end
-        return nil
-    end
-
-    local function shootAt(targetPart)
-        local char = getChar()
-        if not char or not targetPart then return end
-        local gun = equipGun()
-        if not gun then return end
-        local myHrp = char:FindFirstChild("HumanoidRootPart")
-        if not myHrp then return end
-        local startCFrame = CFrame.lookAt(myHrp.Position, targetPart.Position)
-        local endCFrame = CFrame.new(targetPart.Position)
-        pcall(function() gun.Shoot:FireServer(startCFrame, endCFrame) end)
-    end
-
     local function aimLoop()
         if not wig.Aimbot:Get() then return end
         local mode = wig.AimMode:Get()
@@ -975,13 +937,12 @@ local function createFullUI()
         if mode == "Toggle Key" and not aimActive then return end
         local target = getClosestPlayerInFOV()
         if target and target.Character then
-            local partName = wig.AimPart:Get()
-            local targetPart = target.Character:FindFirstChild(partName) or target.Character:FindFirstChild("HumanoidRootPart")
+            local targetPart = target.Character:FindFirstChild(wig.AimPart:Get())
+                or target.Character:FindFirstChild("HumanoidRootPart")
             if targetPart then
                 local smooth = wig.AimSmoothness:Get() / 10
                 local targetCFrame = CFrame.lookAt(camera.CFrame.Position, targetPart.Position)
                 camera.CFrame = camera.CFrame:Lerp(targetCFrame, 1 / smooth)
-                if wig.AimShoot:Get() then shootAt(targetPart) end
             end
         end
     end
@@ -1004,17 +965,14 @@ local function createFullUI()
             aimLoop()
         end
     end)
-    --========================================================--
 
-    --========================================================--
-    --  VISUALS TAB — ESP + AURA + TRAILS + HAT + CURSOR + ASPECT
-    --========================================================--
+    -- VISUALS TAB (ESP + AURA + TRAILS + HAT + CURSOR + ASPECT)
     local vESP    = tabs.Visuals:SectionCreate({ Name = "ESP", Side = "Left" })
     local vOpt    = tabs.Visuals:SectionCreate({ Name = "ESP Options", Side = "Right" })
-    local vAura   = tabs.Visuals:SectionCreate({ Name = "Aura", Side = "Right" })
-    local vTrails = tabs.Visuals:SectionCreate({ Name = "Trails", Side = "Right" })
+    local vAura   = tabs.Visuals:SectionCreate({ Name = "Aura", Side = "Left" })
+    local vTrails = tabs.Visuals:SectionCreate({ Name = "Trails", Side = "Left" })
     local vHat    = tabs.Visuals:SectionCreate({ Name = "China Hat", Side = "Left" })
-    local vCursor = tabs.Visuals:SectionCreate({ Name = "Custom Cursor", Side = "Right" })
+    local vCursor = tabs.Visuals:SectionCreate({ Name = "Custom Cursor", Side = "Left" })
     local vAspect = tabs.Visuals:SectionCreate({ Name = "Aspect Ratio", Side = "Right" })
 
     -- ESP
@@ -1212,9 +1170,7 @@ local function createFullUI()
     })
     espColorPicker:OnChanged(function(c) espColor = c saveSettings() end)
 
-    --========================================================--
-    --  AURA
-    --========================================================--
+    -- AURA
     do
         local AURA_ASSET_ID = 106979401006635
         local AURA_LIST = {
@@ -1376,9 +1332,7 @@ local function createFullUI()
         end
     end
 
-    --========================================================--
-    --  TRAILS
-    --========================================================--
+    -- TRAILS
     do
         wig.Trails = vTrails:ToggleCreate({
             Id = "Trails", Name = "Trails", Description = "Trail effects on characters", Default = false,
@@ -1517,9 +1471,7 @@ local function createFullUI()
         wig.TrailThickness:OnChanged(function() if wig.Trails:Get() then refreshAllTrails() end end)
     end
 
-    --========================================================--
-    --  CHINA HAT
-    --========================================================--
+    -- CHINA HAT
     do
         wig.ChinaHat = vHat:ToggleCreate({
             Id = "ChinaHat.Enabled", Name = "China Hat",
@@ -1599,16 +1551,14 @@ local function createFullUI()
         end)
     end
 
-    --========================================================--
-    --  CUSTOM CURSOR
-    --========================================================--
+    -- CUSTOM CURSOR
     do
         local DEFAULT_CURSOR = "Crosshair"
         local CURSOR_SHAPES = {
             { "Dot", "Dot" }, { "Ring", "Ring" }, { "Crosshair", "Cross" },
             { "Gap", "Gap Cross" }, { "GapDot", "Gap Dot" }, { "RingDot", "Ring Dot" },
             { "Diag", "Diagonal" }, { "Brackets", "Brackets" }, { "Tri", "Tri" },
-            { "Diamond", "Diamond" }, { "Square", "Square" }, { "Heart", "Heart" }, { "PP", "PP" },
+            { "Diamond", "Diamond" }, { "Square", "Square" }, { "Heart", "Heart" },
         }
         local cursorState = {
             gui = nil, frame = nil, scale = nil, parts = {},
@@ -1694,10 +1644,6 @@ local function createFullUI()
             if shape == "Square" then ring(0, 0, 14, 2, 0, true) fill(0, 0, 2, 2) end
             if shape == "Heart" then
                 fill(-4, -3, 10, 10, 0, 0.5, true) fill(4, -3, 10, 10, 0, 0.5, true) fill(0, 2, 12, 12, 45, nil, true)
-            end
-            if shape == "PP" then
-                fill(0, -2, 8, 22, 0, 1, true) fill(0, -14, 10, 10, 0, 1, true)
-                fill(-5, 10, 8, 8, 0, 1, true) fill(5, 10, 8, 8, 0, 1, true)
             end
             return parts
         end
@@ -1880,9 +1826,7 @@ local function createFullUI()
         applyState()
     end
 
-    --========================================================--
-    --  ASPECT RATIO
-    --========================================================--
+    -- ASPECT RATIO
     do
         local aspectState = { enabled = false, resolution = 0.80, conn = nil }
 
@@ -1914,9 +1858,7 @@ local function createFullUI()
         wig.AspectRatioValue:OnChanged(function(value) aspectState.resolution = math.clamp(value / 100, 0.1, 5.0) end)
     end
 
-    --========================================================--
-    --  MOBILE TAB (beautiful floating button)
-    --========================================================--
+    -- MOBILE TAB
     local mobSec  = tabs.Mobile:SectionCreate({ Name = "Mobile Controls", Side = "Left" })
     local mobInfo = tabs.Mobile:SectionCreate({ Name = "Info", Side = "Right" })
 
@@ -1927,7 +1869,6 @@ local function createFullUI()
     MobileGui.Parent = (gethui and gethui()) or CoreGui
 
     local floatingBtn = Instance.new("TextButton")
-    floatingBtn.Name = "FloatingButton"
     floatingBtn.Size = UDim2.new(0, 64, 0, 64)
     floatingBtn.Position = UDim2.new(0, 20, 0.5, -32)
     floatingBtn.AnchorPoint = Vector2.new(0, 0.5)
@@ -1945,14 +1886,6 @@ local function createFullUI()
     fbCorner.CornerRadius = UDim.new(1, 0)
     fbCorner.Parent = floatingBtn
 
-    local fbGradient = Instance.new("UIGradient")
-    fbGradient.Color = ColorSequence.new({
-        ColorSequenceKeypoint.new(0, Color3.fromRGB(60, 60, 80)),
-        ColorSequenceKeypoint.new(1, Color3.fromRGB(20, 20, 30)),
-    })
-    fbGradient.Rotation = 45
-    fbGradient.Parent = floatingBtn
-
     local fbStroke = Instance.new("UIStroke")
     fbStroke.Thickness = 2
     fbStroke.Color = Color3.fromRGB(255, 255, 255)
@@ -1963,86 +1896,47 @@ local function createFullUI()
     fbScale.Scale = getNum("mobileBtnScale", 1)
     fbScale.Parent = floatingBtn
 
-    local pulseTween = TweenService:Create(fbStroke,
-        TweenInfo.new(1.2, Enum.EasingStyle.Sine, Enum.EasingDirection.InOut, -1, true),
-        { Transparency = 0.7 })
-    pulseTween:Play()
-
     local popup = Instance.new("Frame")
-    popup.Name = "Popup"
-    popup.Size = UDim2.new(0, 200, 0, 360)
-    popup.Position = UDim2.new(0, 96, 0.5, -180)
+    popup.Size = UDim2.new(0, 200, 0, 320)
+    popup.Position = UDim2.new(0, 96, 0.5, -160)
     popup.BackgroundColor3 = Color3.fromRGB(18, 18, 24)
-    popup.BackgroundTransparency = 0.02
     popup.BorderSizePixel = 0
     popup.Visible = false
     popup.Parent = MobileGui
-
     local popupCorner = Instance.new("UICorner")
     popupCorner.CornerRadius = UDim.new(0, 14)
     popupCorner.Parent = popup
 
-    local popupStroke = Instance.new("UIStroke")
-    popupStroke.Thickness = 1.5
-    popupStroke.Color = Color3.fromRGB(255, 255, 255)
-    popupStroke.Transparency = 0.5
-    popupStroke.Parent = popup
-
     local popupLayout = Instance.new("UIListLayout")
     popupLayout.Parent = popup
     popupLayout.Padding = UDim.new(0, 6)
-    popupLayout.SortOrder = Enum.SortOrder.LayoutOrder
     popupLayout.HorizontalAlignment = Enum.HorizontalAlignment.Center
-
     local popupPad = Instance.new("UIPadding")
     popupPad.Parent = popup
     popupPad.PaddingTop = UDim.new(0, 10)
-    popupPad.PaddingLeft = UDim.new(0, 8)
-    popupPad.PaddingRight = UDim.new(0, 8)
-    popupPad.PaddingBottom = UDim.new(0, 10)
+    popupPad.PaddingLeft = UDim.new(0, 6)
+    popupPad.PaddingRight = UDim.new(0, 6)
 
     local function makePopupBtn(label, onClick)
         local b = Instance.new("TextButton")
-        b.Size = UDim2.new(1, 0, 0, 34)
+        b.Size = UDim2.new(1, 0, 0, 32)
         b.BackgroundColor3 = Color3.fromRGB(40, 40, 52)
-        b.BackgroundTransparency = 0.05
         b.Text = label
         b.TextColor3 = Color3.new(1, 1, 1)
         b.TextSize = 13
         b.Font = Enum.Font.GothamBold
         b.BorderSizePixel = 0
-        b.AutoButtonColor = false
         b.Parent = popup
         local c = Instance.new("UICorner")
         c.CornerRadius = UDim.new(0, 8)
         c.Parent = b
-        local s = Instance.new("UIStroke")
-        s.Thickness = 1
-        s.Color = Color3.fromRGB(255, 255, 255)
-        s.Transparency = 0.85
-        s.Parent = b
-        b.MouseEnter:Connect(function()
-            TweenService:Create(b, TweenInfo.new(0.15), {
-                BackgroundColor3 = Color3.fromRGB(60, 60, 80),
-                BackgroundTransparency = 0,
-            }):Play()
-        end)
-        b.MouseLeave:Connect(function()
-            TweenService:Create(b, TweenInfo.new(0.15), {
-                BackgroundColor3 = Color3.fromRGB(40, 40, 52),
-                BackgroundTransparency = 0.05,
-            }):Play()
-        end)
         b.MouseButton1Click:Connect(onClick)
         return b
     end
 
     local function toggleFeature(id)
         local f = features[id]
-        if f then
-            f.set(not f.active)
-            notify((f.active and "ON: " or "OFF: ") .. id)
-        end
+        if f then f.set(not f.active) end
     end
 
     makePopupBtn("Fly", function() toggleFeature("fly") end)
@@ -2054,15 +1948,10 @@ local function createFullUI()
     makePopupBtn("TP Platform", function()
         if safePlatform then returnToGround() else teleportToPlatform() end
     end)
-    makePopupBtn("Reset Char", function()
-        local hum = getHum()
-        if hum then hum.Health = 0 end
-    end)
 
     local dragging, dragStart, startPos, dragInput = false, nil, nil, nil
     floatingBtn.InputBegan:Connect(function(input)
-        if input.UserInputType == Enum.UserInputType.Touch
-            or input.UserInputType == Enum.UserInputType.MouseButton1 then
+        if input.UserInputType == Enum.UserInputType.Touch or input.UserInputType == Enum.UserInputType.MouseButton1 then
             dragging = true
             dragInput = input
             dragStart = input.Position
@@ -2082,8 +1971,7 @@ local function createFullUI()
         end
     end)
     UserInputService.InputEnded:Connect(function(input)
-        if input.UserInputType == Enum.UserInputType.Touch
-            or input.UserInputType == Enum.UserInputType.MouseButton1 then
+        if input.UserInputType == Enum.UserInputType.Touch or input.UserInputType == Enum.UserInputType.MouseButton1 then
             dragging = false
             dragInput = nil
         end
@@ -2091,20 +1979,13 @@ local function createFullUI()
 
     floatingBtn.MouseButton1Click:Connect(function()
         popup.Visible = not popup.Visible
-        if popup.Visible then
-            TweenService:Create(fbStroke, TweenInfo.new(0.2), { Transparency = 0 }):Play()
-        else
-            TweenService:Create(fbStroke, TweenInfo.new(0.2), { Transparency = 0.3 }):Play()
-        end
     end)
 
     makeToggle(mobSec, "mobileToggle", "Show Floating Button", "Toggle on-screen menu", false, function()
         floatingBtn.Visible = true
-        pulseTween:Play()
     end, function()
         floatingBtn.Visible = false
         popup.Visible = false
-        pulseTween:Cancel()
     end)
 
     makeSlider(mobSec, "mobileBtnScale", "Button Scale (x0.01)", nil, 50, 200, 100, "", function(v)
@@ -2115,11 +1996,8 @@ local function createFullUI()
         Id = "mobileInfoLabel", Name = "Info",
         Text = "Floating button: drag to move. Scale slider above. Tap to toggle menu.",
     })
-    --========================================================--
 
-    --========================================================--
-    --  MISC TAB
-    --========================================================--
+    -- MISC TAB
     local mConnect = tabs.Misc:SectionCreate({ Name = "Connection", Side = "Left" })
     local mSave    = tabs.Misc:SectionCreate({ Name = "Configs", Side = "Right" })
 
@@ -2151,23 +2029,240 @@ local function createFullUI()
     local CONFIG_NAME = "Onrusha Hub cfg Survive Your Ideas"
     makeButton(mSave, "saveCfg", "Save Config", CONFIG_NAME, "Save", function()
         saveSettings()
-        notify("Config saved: " .. CONFIG_NAME)
+        notify("Config saved")
     end)
     makeButton(mSave, "loadCfg", "Load Config", CONFIG_NAME, "Load", function()
         loadSettings()
-        notify("Config loaded: " .. CONFIG_NAME)
+        notify("Config loaded")
     end)
 
-    --========================================================--
-    --  RELEASE MOUSE ON CLOSE
-    --========================================================--
+    -- WORD SENDER
+    local mWord    = tabs.Misc:SectionCreate({ Name = "Word Sender", Side = "Left" })
+    local mWordSet = tabs.Misc:SectionCreate({ Name = "Word Settings", Side = "Right" })
+
+    local WORD_GROUPS = {
+        { name = "Weapons",   words = { "Sniper", "RPG", "Katana", "Shield", "Gun", "Bomb", "Knife", "Sword" } },
+        { name = "Disasters", words = { "Lava", "Tsunami", "Nuke", "Meteor", "Tornado", "Flood", "Earthquake", "Volcano" } },
+        { name = "Animals",   words = { "Dog", "Cat", "Shark", "Dragon", "Bear", "Wolf", "Spider", "Snake" } },
+        { name = "Weather",   words = { "Rain", "Snow", "Fog", "Storm", "Night", "Day", "Heat", "Wind" } },
+    }
+    local selectedGroup = "Weapons"
+
+    local function getWordToSend(random)
+        if random then
+            for _, g in ipairs(WORD_GROUPS) do
+                if g.name == selectedGroup then
+                    local rw = g.words[math.random(1, #g.words)]
+                    settings.values.word = rw
+                    saveSettings()
+                    return rw
+                end
+            end
+        end
+        return settings.values.word or ""
+    end
+
+    local function findWordRemote()
+        local wr = ReplicatedStorage:FindFirstChild("WriterRemotes")
+        return wr and wr:FindFirstChild("SubmitWord")
+    end
+
+    local function executeWordSubmit(word)
+        if not word or word == "" then return false end
+        local r = findWordRemote()
+        if r then
+            local ok = pcall(function() r:FireServer(word) end)
+            if ok then notify("Sent -> " .. word, "Success") return true end
+        end
+        notify("Remote not found", "Error")
+        return false
+    end
+
+    local wordInput = mWord:InputCreate({
+        Id = "word", Name = "Word", Description = "Type a word manually",
+        Placeholder = "Type a word...", Default = settings.values.word or "Sniper", MaxLength = 60,
+    })
+    wordInput:OnChanged(function(v) settings.values.word = v saveSettings() end)
+
+    mWord:ButtonCreate({
+        Id = "sendWord", Name = "Send Word", Description = "Send current word",
+        ButtonText = "Send",
+    }):OnClick(function()
+        local word = getWordToSend(false)
+        if word == "" then notify("Empty word", "Warning") return end
+        executeWordSubmit(word)
+    end)
+
+    local groupOptions = {}
+    for _, g in ipairs(WORD_GROUPS) do table.insert(groupOptions, g.name) end
+    mWordSet:DropdownCreate({
+        Id = "wordGroup", Name = "Category", Options = groupOptions, Default = selectedGroup,
+    }):OnChanged(function(v) selectedGroup = v settings.values.wordGroup = v saveSettings() end)
+
+    local smartConnections = {}
+    local senderMode = nil
+    local lastFiredTick = 0
+    local COOLDOWN = 3.5
+    local exactPatterns = { "your turn to write", "your turn", "it's your turn", "sıra sende", "sira sende" }
+
+    local function tryInstantFire(sourceName)
+        local now = tick()
+        if (now - lastFiredTick) < COOLDOWN then return end
+        local word = getWordToSend(senderMode == "random")
+        if word == "" then return end
+        lastFiredTick = now
+        if executeWordSubmit(word) then
+            notify("⚡ Sent (" .. sourceName .. ") -> " .. word, "Success")
+        end
+    end
+
+    local function isMatch(text)
+        if type(text) ~= "string" or text == "" then return false end
+        local lower = text:lower()
+        for _, p in ipairs(exactPatterns) do
+            if lower:find(p, 1, true) then return true end
+        end
+        return false
+    end
+
+    local function isOwnGui(obj)
+        local sg = obj:FindFirstAncestorOfClass("ScreenGui")
+        if not sg then return false end
+        local n = sg.Name
+        return n:sub(1, 3) == "Pro" or n:sub(1, 7) == "Onrusha"
+    end
+
+    local function isReallyVisible(gui)
+        local cur = gui
+        while cur and cur ~= game do
+            if cur:IsA("GuiObject") and not cur.Visible then return false end
+            if cur:IsA("ScreenGui") and not cur.Enabled then return false end
+            cur = cur.Parent
+        end
+        return true
+    end
+
+    local function inspectElement(element)
+        if element:IsA("TextBox") and not isOwnGui(element) then
+            local function onBoxVisible()
+                if isReallyVisible(element) and (tick() - lastFiredTick) >= COOLDOWN then
+                    tryInstantFire("Box-Opened")
+                end
+            end
+            table.insert(smartConnections, element:GetPropertyChangedSignal("Visible"):Connect(onBoxVisible))
+            onBoxVisible()
+            return
+        end
+        if not (element:IsA("TextLabel") or element:IsA("TextButton")) then return end
+        if isOwnGui(element) then return end
+        local function check()
+            if not isReallyVisible(element) then return end
+            if isMatch(element.Text) then tryInstantFire("Turn-Text") return end
+            local txt = element.Text:lower()
+            if (txt == "write" or txt:find("^write%s*")) and element.AbsoluteSize.Y > 20 then
+                tryInstantFire("Write-Button")
+            end
+        end
+        table.insert(smartConnections, element:GetPropertyChangedSignal("Text"):Connect(check))
+        table.insert(smartConnections, element:GetPropertyChangedSignal("Visible"):Connect(check))
+        check()
+    end
+
+    local pollThread
+    local function startSender()
+        if pollThread then return end
+        local playerGui = LocalPlayer:WaitForChild("PlayerGui")
+        for _, desc in ipairs(playerGui:GetDescendants()) do inspectElement(desc) end
+        table.insert(smartConnections, playerGui.DescendantAdded:Connect(inspectElement))
+
+        local wr = ReplicatedStorage:FindFirstChild("WriterRemotes")
+        local prompt = wr and wr:FindFirstChild("WriterPrompt")
+        if prompt then
+            table.insert(smartConnections, prompt.OnClientEvent:Connect(function()
+                task.delay(math.random(30, 80) / 100, function()
+                    if senderMode then tryInstantFire("Prompt") end
+                end)
+            end))
+        end
+
+        pollThread = task.spawn(function()
+            local boxWasOpen, textWasMatch = false, false
+            while true do
+                local boxOpen, textMatch = false, false
+                for _, d in ipairs(playerGui:GetDescendants()) do
+                    if not isOwnGui(d) then
+                        if d:IsA("TextBox") then
+                            if isReallyVisible(d) then boxOpen = true end
+                        elseif (d:IsA("TextLabel") or d:IsA("TextButton")) and isMatch(d.Text) and isReallyVisible(d) then
+                            textMatch = true
+                        end
+                    end
+                end
+                if boxOpen and not boxWasOpen then tryInstantFire("Box-Poll") end
+                if textMatch and not textWasMatch then tryInstantFire("Text-Poll") end
+                boxWasOpen, textWasMatch = boxOpen, textMatch
+                task.wait(0.2)
+            end
+        end)
+    end
+
+    local function stopSender()
+        if pollThread then pcall(task.cancel, pollThread) pollThread = nil end
+        for _, conn in ipairs(smartConnections) do
+            if conn and conn.Disconnect then pcall(function() conn:Disconnect() end) end
+        end
+        smartConnections = {}
+    end
+
+    makeToggle(mWordSet, "autoTurn", "Auto Send: Selected Word",
+        "Auto-send the word in the input field", false,
+        function()
+            if features["autoRandom"] and features["autoRandom"].active then
+                features["autoRandom"].set(false)
+            end
+            senderMode = "word"
+            startSender()
+        end,
+        function()
+            if senderMode == "word" then
+                senderMode = nil
+                stopSender()
+            end
+        end)
+
+    makeToggle(mWordSet, "autoRandom", "Auto Send: Random From Category",
+        "Auto-send a random word from the selected category", false,
+        function()
+            if features["autoTurn"] and features["autoTurn"].active then
+                features["autoTurn"].set(false)
+            end
+            senderMode = "random"
+            startSender()
+        end,
+        function()
+            if senderMode == "random" then
+                senderMode = nil
+                stopSender()
+            end
+        end)
+
+    -- RELEASE MOUSE + CLOSE STATE
     do
         local origHide, origToggle = ui.Hide, ui.Toggle
         if type(origHide) == "function" then
-            ui.Hide = function(self) local ok, err = pcall(origHide, self) releaseMouse() return ok, err end
+            ui.Hide = function(self)
+                local ok, err = pcall(origHide, self)
+                releaseMouse()
+                _G[STATE_KEY].closed = true
+                return ok, err
+            end
         end
         if type(origToggle) == "function" then
-            ui.Toggle = function(self) local ok, err = pcall(origToggle, self) releaseMouse() return ok, err end
+            ui.Toggle = function(self)
+                local ok, err = pcall(origToggle, self)
+                releaseMouse()
+                return ok, err
+            end
         end
         track(UserInputService.InputBegan:Connect(function(input, gpe)
             if not gpe and input.KeyCode == Enum.KeyCode.H then
@@ -2175,38 +2270,40 @@ local function createFullUI()
             end
         end))
     end
-    --========================================================--
 
     return ui
 end
 --========================================================--
 
 --========================================================--
---  START + AUTO-EXEC ON JOIN
+--  START
 --========================================================--
-if isInMatch() then
-    createFullUI()
-else
-    createLobbyUI()
-end
-
-track(LocalPlayer.CharacterAdded:Connect(function()
-    task.wait(2)
+if not _G[STATE_KEY].closed then
     if isInMatch() then
         createFullUI()
     else
         createLobbyUI()
     end
+end
+
+track(LocalPlayer.CharacterAdded:Connect(function()
+    task.wait(2)
+    if not _G[STATE_KEY].closed then
+        if isInMatch() then
+            createFullUI()
+        else
+            createLobbyUI()
+        end
+    end
 end))
 
---========================================================--
---  AUTO-EXEC ON TELEPORT (queue_on_teleport)
---========================================================--
 if queue_on_teleport then
     pcall(function()
         queue_on_teleport([[
             wait(0.5)
-            loadstring(game:HttpGet("https://raw.githubusercontent.com/Andreusha1/Survive-Your-Ideas-scripot/refs/heads/main/script"))()
+            if not getgenv or not getgenv().OnrushaHubState or not getgenv().OnrushaHubState.closed then
+                loadstring(game:HttpGet("https://raw.githubusercontent.com/Andreusha1/Survive-Your-Ideas-scripot/refs/heads/main/script"))()
+            end
         ]])
     end)
 end
