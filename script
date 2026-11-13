@@ -1,6 +1,10 @@
 --========================================================--
 --  Onrusha Hub — Survive Your Ideas
 --========================================================--
+-- AUTOEXEC: положи этот файл в папку executor/autoexec/ чтобы
+-- скрипт запускался при каждом инжекте. Или используй queue_on_teleport
+-- в конце скрипта — он перезапускает скрипт при переходе в матч.
+--========================================================--
 local Onrusha = loadstring(game:HttpGet("https://raw.githubusercontent.com/Andreusha1/OnrushaHub/refs/heads/main/script"))()
 
 local Players           = game:GetService("Players")
@@ -139,19 +143,13 @@ local function createLobbyUI()
     --  START GAME
     --========================================================--
     mainSec:ButtonCreate({
-        Id = "lobby_start",
-        Name = "Start Game",
-        Description = "QueueRemotes.PlayJump:FireServer()",
-        ButtonText = "Start",
+        Id = "lobby_start", Name = "Start Game",
+        Description = "QueueRemotes.PlayJump:FireServer()", ButtonText = "Start",
     }):OnClick(function()
         local ev = ReplicatedStorage:FindFirstChild("QueueRemotes")
         ev = ev and ev:FindFirstChild("PlayJump")
-        if ev then
-            ev:FireServer()
-            notify("Game started!", "Success")
-        else
-            notify("PlayJump remote not found", "Error")
-        end
+        if ev then ev:FireServer() notify("Game started!", "Success")
+        else notify("PlayJump remote not found", "Error") end
     end)
     --========================================================--
 
@@ -170,10 +168,7 @@ local function createLobbyUI()
         local column = lobby and lobby:FindFirstChild("Column")
         local itemsBtn = column and column:FindFirstChild("ItemsButton")
         local key = itemsBtn and itemsBtn:FindFirstChild("Key")
-        if key and (key:IsA("TextButton") or key:IsA("ImageButton")) then
-            safeClick(key)
-            return true
-        end
+        if key then safeClick(key) return true end
         return false
     end
 
@@ -187,8 +182,7 @@ local function createLobbyUI()
 
     spinSec:ToggleCreate({
         Id = "auto_spin", Name = "Auto Buy Spin",
-        Description = "Press Items button and spin automatically",
-        Default = false,
+        Description = "Press Items button and spin automatically", Default = false,
     }):OnChanged(function(v)
         spinEnabled = v
         if v then
@@ -247,10 +241,7 @@ local function createLobbyUI()
         for _, slot in ipairs(collection:GetChildren()) do
             local face = slot:FindFirstChild("Face", true)
             if face and face:IsA("Frame") then
-                table.insert(slots, {
-                    name = slot.Name,
-                    owned = isOwnedColor(face.BackgroundColor3),
-                })
+                table.insert(slots, { name = slot.Name, owned = isOwnedColor(face.BackgroundColor3) })
             end
         end
         return slots
@@ -277,9 +268,7 @@ local function createLobbyUI()
 
     local function arrayEquals(a, b)
         if not a or not b or #a ~= #b then return false end
-        for i = 1, #a do
-            if a[i] ~= b[i] then return false end
-        end
+        for i = 1, #a do if a[i] ~= b[i] then return false end end
         return true
     end
 
@@ -300,7 +289,7 @@ local function createLobbyUI()
             local column = lobby and lobby:FindFirstChild("Column")
             local itemsBtn = column and column:FindFirstChild("ItemsButton")
             local key = itemsBtn and itemsBtn:FindFirstChild("Key")
-            if key and (key:IsA("TextButton") or key:IsA("ImageButton")) then
+            if key then
                 safeClick(key)
                 task.wait(0.15)
                 safeClick(key)
@@ -310,8 +299,7 @@ local function createLobbyUI()
 
     local autoBest = itemsSec:ToggleCreate({
         Id = "auto_best", Name = "Auto Best Items",
-        Description = "Equip highest-tier owned items automatically via loadout",
-        Default = false,
+        Description = "Equip highest-tier owned items automatically via loadout", Default = false,
     })
     local bestThread = nil
 
@@ -320,18 +308,11 @@ local function createLobbyUI()
             bestThread = task.spawn(function()
                 local ok, err = pcall(function()
                     local lib = getItemLibrary()
-                    if not lib then
-                        notify("ItemLibrary not found", "Error")
-                        autoBest:Set(false)
-                        return
-                    end
-
+                    if not lib then notify("ItemLibrary not found", "Error") autoBest:Set(false) return end
                     local nameToId = buildNameToId(lib)
-
                     while autoBest:Get() do
                         local slots = getOwnedSlots()
                         local bestIds = buildBestIds(slots, lib, nameToId)
-
                         if #bestIds > 0 then
                             local state = sendLoadout(bestIds)
                             if state and state.loadout and arrayEquals(state.loadout, bestIds) then
@@ -340,13 +321,10 @@ local function createLobbyUI()
                         else
                             notify("No owned items found", "Warning")
                         end
-
                         task.wait(3)
                     end
                 end)
-                if not ok then
-                    notify("Auto Best error: " .. tostring(err), "Error")
-                end
+                if not ok then notify("Auto Best error: " .. tostring(err), "Error") end
             end)
         else
             if bestThread then pcall(task.cancel, bestThread) bestThread = nil end
@@ -355,19 +333,16 @@ local function createLobbyUI()
     --========================================================--
 
     --========================================================--
-    --  AUTO REDEEM CODES (dropdown)
+    --  AUTO REDEEM CODES
     --========================================================--
     local CODES = { "BIG5", "NEWMAPSCOMING", "FIRSTUPDATE", "THANKYOU" }
-
     local codeDropdown = codeSec:DropdownCreate({
-        Id = "codes_select", Name = "Select Code",
-        Options = CODES, Default = CODES[1],
+        Id = "codes_select", Name = "Select Code", Options = CODES, Default = CODES[1],
     })
 
     codeSec:ButtonCreate({
         Id = "redeem_one", Name = "Redeem Selected",
-        Description = "Runs Codes.Redeem:InvokeServer for the chosen code",
-        ButtonText = "Redeem",
+        Description = "Runs Codes.Redeem for the chosen code", ButtonText = "Redeem",
     }):OnClick(function()
         local ev = ReplicatedStorage:FindFirstChild("Codes")
         ev = ev and ev:FindFirstChild("Redeem")
@@ -380,8 +355,7 @@ local function createLobbyUI()
 
     codeSec:ButtonCreate({
         Id = "redeem_all", Name = "Redeem All",
-        Description = "Runs Codes.Redeem:InvokeServer for every code",
-        ButtonText = "Redeem All",
+        Description = "Runs Codes.Redeem for every code", ButtonText = "Redeem All",
     }):OnClick(function()
         local ev = ReplicatedStorage:FindFirstChild("Codes")
         ev = ev and ev:FindFirstChild("Redeem")
@@ -686,11 +660,11 @@ local function createFullUI()
     --========================================================--
 
     --========================================================--
-    --  COMBAT TAB
+    --  COMBAT TAB — SAFETY + AIMBOT (по вашему примеру)
     --========================================================--
     local cSafety    = tabs.Combat:SectionCreate({ Name = "Safety", Side = "Left" })
     local cAim       = tabs.Combat:SectionCreate({ Name = "Aimbot", Side = "Left" })
-    local cAimTarget = tabs.Combat:SectionCreate({ Name = "Aimbot Target", Side = "Right" })
+    local cAimTarget = tabs.Combat:SectionCreate({ Name = "Aimbot Settings", Side = "Right" })
 
     local originalPosition, safePlatform, platformCoords
     local function teleportToPlatform()
@@ -700,11 +674,8 @@ local function createFullUI()
         local fresh = (originalPosition == nil)
         if fresh then originalPosition = hrp.CFrame end
         local x, z
-        if (not fresh) and platformCoords then
-            x, z = platformCoords.X, platformCoords.Z
-        else
-            x, z = hrp.Position.X, hrp.Position.Z
-        end
+        if (not fresh) and platformCoords then x, z = platformCoords.X, platformCoords.Z
+        else x, z = hrp.Position.X, hrp.Position.Z end
         if fresh or not safePlatform or not safePlatform.Parent
             or not platformCoords or platformCoords.Y ~= height then
             if safePlatform then safePlatform:Destroy() end
@@ -819,10 +790,7 @@ local function createFullUI()
         end)
         muteRagdollListeners()
         arScanThread = task.spawn(function()
-            while true do
-                task.wait(0.5)
-                muteRagdollListeners()
-            end
+            while true do task.wait(0.5) muteRagdollListeners() end
         end)
     end, function()
         if arCharConn then arCharConn:Disconnect() arCharConn = nil end
@@ -834,189 +802,222 @@ local function createFullUI()
         arDisabled, arSeen = {}, {}
     end)
 
-    local aimOpt = {}
-    local aimBind = settings.values.aimKey or "MouseButton2"
-    local aimBindType = (aimBind:sub(1, 11) == "MouseButton") and "MouseButton" or "Key"
-    local lockedTarget, lastLockName = nil, nil
+    --========================================================--
+    --  AIMBOT (порт из вашего примера)
+    --========================================================--
+    wig.Aimbot = cAim:ToggleCreate({
+        Id = "Aimbot.Enabled", Name = "Aimbot",
+        Description = "Aim at the nearest target", Default = false,
+    })
 
-    local AimGui = Instance.new("ScreenGui")
-    AimGui.Name = "OnrushaAim"
-    AimGui.ResetOnSpawn = false
-    AimGui.IgnoreGuiInset = true
-    AimGui.Parent = (gethui and gethui()) or CoreGui
+    wig.AimMode = cAimTarget:DropdownCreate({
+        Id = "Aimbot.Mode", Name = "Activation Mode",
+        Options = { "Always On", "Hold Key", "Toggle Key" }, Default = "Hold Key",
+    })
 
-    local fovCircle = Instance.new("Frame")
-    fovCircle.AnchorPoint = Vector2.new(0.5, 0.5)
-    fovCircle.BackgroundTransparency = 1
-    fovCircle.Visible = false
-    fovCircle.Parent = AimGui
-    local fovCorner = Instance.new("UICorner")
-    fovCorner.CornerRadius = UDim.new(1, 0)
-    fovCorner.Parent = fovCircle
-    local fovStroke = Instance.new("UIStroke")
-    fovStroke.Thickness = 1.5
-    fovStroke.Transparency = 0.2
-    fovStroke.Color = Color3.new(1, 1, 1)
-    fovStroke.Parent = fovCircle
+    wig.AimKeybind = cAimTarget:KeybindCreate({
+        Id = "Aimbot.Keybind", Name = "Aim Key",
+        Description = "Click Set key to change", Default = Enum.KeyCode.E, Mode = "Hold",
+    })
 
-    local function isBindDown()
-        if aimBindType == "MouseButton" then
-            local ok, ut = pcall(function() return Enum.UserInputType[aimBind] end)
-            return (ok and ut and UserInputService:IsMouseButtonPressed(ut)) or false
+    wig.AimPart = cAimTarget:DropdownCreate({
+        Id = "Aimbot.Part", Name = "Aim Part",
+        Options = { "Head", "HumanoidRootPart", "Torso" }, Default = "Head",
+    })
+
+    local aimSettings = wig.Aimbot:CreateSettings({ Name = "Sensitivity" })
+
+    wig.AimFOV = aimSettings:SliderCreate({
+        Id = "Aimbot.FOV", Name = "FOV Size",
+        Min = 10, Max = 500, Default = 150,
+    })
+
+    wig.AimSmoothness = aimSettings:SliderCreate({
+        Id = "Aimbot.Smoothness", Name = "Smoothness (Lower is faster)",
+        Min = 1, Max = 100, Default = 20,
+    })
+
+    wig.AimDistance = aimSettings:SliderCreate({
+        Id = "Aimbot.Distance", Name = "Max Distance (Studs)",
+        Min = 35, Max = 600, Default = 300,
+    })
+
+    wig.AimShoot = aimSettings:ToggleCreate({
+        Id = "Aimbot.Shoot", Name = "Auto Shoot on Aim",
+        Description = "Fires tool when aiming for guaranteed hit", Default = false,
+    })
+
+    local uis = game:GetService("UserInputService")
+    local runService = game:GetService("RunService")
+    local camera = workspace.CurrentCamera
+
+    local aimActive = false
+    local keybindPressed = false
+
+    wig.AimKeybind:OnClick(function(active, key)
+        if active then
+            if wig.AimMode:Get() == "Toggle Key" then aimActive = not aimActive
+            elseif wig.AimMode:Get() == "Hold Key" then keybindPressed = true end
         else
-            local ok, kc = pcall(function() return Enum.KeyCode[aimBind] end)
-            return (ok and kc and UserInputService:IsKeyDown(kc)) or false
+            if wig.AimMode:Get() == "Hold Key" then keybindPressed = false end
         end
-    end
-
-    local function isAiming()
-        if UserInputService:GetFocusedTextBox() then return false end
-        return isBindDown()
-    end
-
-    local function getAimPart(char)
-        local mode = settings.values.aimPart or "Head"
-        if mode == "Torso" then
-            return char:FindFirstChild("UpperTorso") or char:FindFirstChild("Torso") or char:FindFirstChild("HumanoidRootPart")
-        end
-        return char:FindFirstChild("Head") or char:FindFirstChild("HumanoidRootPart")
-    end
-
-    local rayParams = RaycastParams.new()
-    rayParams.FilterType = Enum.RaycastFilterType.Exclude
-
-    local function isVisible(cam, part, char)
-        local filter = { char }
-        if LocalPlayer.Character then table.insert(filter, LocalPlayer.Character) end
-        rayParams.FilterDescendantsInstances = filter
-        local origin = cam.CFrame.Position
-        return workspace:Raycast(origin, part.Position - origin, rayParams) == nil
-    end
-
-    local function evaluate(player, cam, center, useFov)
-        if player == LocalPlayer then return end
-        local char = player.Character
-        if not char then return end
-        local hum = char:FindFirstChildOfClass("Humanoid")
-        if not hum or hum.Health <= 0 then return end
-        local part = getAimPart(char)
-        if not part then return end
-        local sp, onScreen = cam:WorldToViewportPoint(part.Position)
-        if not onScreen then return end
-        local sd = (Vector2.new(sp.X, sp.Y) - center).Magnitude
-        if useFov and sd > getNum("aimFov", 200) then return end
-        if aimOpt.wall and not isVisible(cam, part, char) then return end
-        return part, sd
-    end
-
-    local function findTarget(cam, center)
-        local best, bestScore
-        for _, p in ipairs(Players:GetPlayers()) do
-            local part, sd = evaluate(p, cam, center, true)
-            if part and (not bestScore or sd < bestScore) then
-                best, bestScore = p, sd
-            end
-        end
-        return best
-    end
-
-    local function aimStep(dt)
-        local cam = workspace.CurrentCamera
-        if not cam then return end
-        local center = cam.ViewportSize / 2
-        local fov = getNum("aimFov", 200)
-        fovCircle.Position = UDim2.fromOffset(center.X, center.Y)
-        fovCircle.Size = UDim2.fromOffset(fov * 2, fov * 2)
-        fovCircle.Visible = aimOpt.fovCircle == true and (features.aimbot and features.aimbot.active or false)
-        if not isAiming() then lockedTarget = nil lastLockName = nil return end
-        local part
-        if lockedTarget then
-            part = evaluate(lockedTarget, cam, center, false)
-            if not part then lockedTarget = nil end
-        end
-        if not lockedTarget then
-            lockedTarget = findTarget(cam, center)
-            if lockedTarget then part = evaluate(lockedTarget, cam, center, false) end
-        end
-        if not lockedTarget or not part then lastLockName = nil return end
-        if lastLockName ~= lockedTarget.Name then
-            lastLockName = lockedTarget.Name
-            notify("Aimbot -> " .. lockedTarget.Name)
-        end
-        local s = math.max(getNum("aimSmooth", 2), 1)
-        local alpha = (s <= 1) and 1 or (1 - (1 - 1 / s) ^ (dt * 60))
-        local camPos = cam.CFrame.Position
-        cam.CFrame = cam.CFrame:Lerp(CFrame.lookAt(camPos, part.Position), alpha)
-    end
-
-    makeToggle(cAim, "aimbot", "Aimbot", "Hold bind to aim", false, function()
-        aimOpt.aimbot = true
-        lockedTarget = nil
-        RunService:BindToRenderStep("OnrushaAim", Enum.RenderPriority.Camera.Value + 1, aimStep)
-    end, function()
-        aimOpt.aimbot = false
-        pcall(function() RunService:UnbindFromRenderStep("OnrushaAim") end)
-        lockedTarget = nil
-        lastLockName = nil
-        fovCircle.Visible = false
     end)
 
-    do
-        local bindRow = cAim:ButtonCreate({
-            Id = "aimBindBtn", Name = "Aim Bind: " .. aimBind,
-            Description = "Click to rebind (mouse or key)", ButtonText = "Set Bind",
-        })
-        local capturing = false
-        bindRow:OnClick(function()
-            capturing = true
-            bindRow:SetName("Press a key / mouse button...")
-        end)
-        track(UserInputService.InputBegan:Connect(function(input)
-            if not capturing then return end
-            local name, btype
-            if input.UserInputType == Enum.UserInputType.Keyboard then
-                name = input.KeyCode.Name btype = "Key"
-            elseif input.UserInputType == Enum.UserInputType.MouseButton1
-                or input.UserInputType == Enum.UserInputType.MouseButton2
-                or input.UserInputType == Enum.UserInputType.MouseButton3 then
-                name = input.UserInputType.Name btype = "MouseButton"
-            end
-            if name and name ~= "Unknown" then
-                capturing = false
-                aimBind, aimBindType = name, btype
-                settings.values.aimKey = name
-                saveSettings()
-                bindRow:SetName("Aim Bind: " .. name)
-                notify("Aim Bind: " .. name)
-            end
-        end))
+    uis.InputEnded:Connect(function(input, gpe)
+        if gpe then return end
+        local currentKey = wig.AimKeybind:Get()
+        if input.KeyCode == currentKey then
+            if wig.AimMode:Get() == "Hold Key" then keybindPressed = false end
+        end
+    end)
+
+    local fovCircle = nil
+
+    local function createFOVCircle()
+        if fovCircle then fovCircle:Destroy() end
+        fovCircle = Instance.new("ScreenGui")
+        fovCircle.Name = "AimbotFOV"
+        fovCircle.IgnoreGuiInset = true
+        fovCircle.ResetOnSpawn = false
+        local frame = Instance.new("Frame")
+        frame.Name = "Circle"
+        frame.BackgroundTransparency = 1
+        frame.AnchorPoint = Vector2.new(0.5, 0.5)
+        frame.Position = UDim2.fromScale(0.5, 0.5)
+        frame.Parent = fovCircle
+        local uiCorner = Instance.new("UICorner")
+        uiCorner.CornerRadius = UDim.new(1, 0)
+        uiCorner.Parent = frame
+        local stroke = Instance.new("UIStroke")
+        stroke.Color = Color3.fromRGB(255, 255, 255)
+        stroke.Thickness = 1
+        stroke.Transparency = 0.5
+        stroke.Parent = frame
+        fovCircle.Parent = (gethui and gethui()) or CoreGui
+        return frame
     end
 
-    local partDropdown = cAimTarget:DropdownCreate({
-        Id = "aimPart", Name = "Target Part", Options = { "Head", "Torso" }, Default = "Head",
-    })
-    settings.values.aimPart = "Head"
-    partDropdown:OnChanged(function(v) settings.values.aimPart = v saveSettings() end)
-
-    makeSlider(cAimTarget, "aimFov", "FOV Radius", "px", 10, 800, 200, "px", function() end)
-    makeSlider(cAimTarget, "aimSmooth", "Smoothness", "1 = instant", 1, 20, 2, "", function() end)
-
-    local function addAimOpt(key, label, default)
-        aimOpt[key] = false
-        makeToggle(cAimTarget, "aim_" .. key, label, nil, default,
-            function() aimOpt[key] = true end,
-            function() aimOpt[key] = false end)
+    local function updateFOVCircle()
+        if not fovCircle then return end
+        local frame = fovCircle:FindFirstChild("Circle")
+        if frame then
+            local fov = wig.AimFOV:Get()
+            local size = fov * 2
+            frame.Size = UDim2.fromOffset(size, size)
+            frame.Visible = wig.Aimbot:Get()
+        end
     end
-    addAimOpt("wall", "Wall Check (Visible Only)", false)
-    addAimOpt("fovCircle", "Show FOV Circle", true)
+
+    local function getClosestPlayerInFOV()
+        local closestPlayer = nil
+        local shortestDistance = wig.AimFOV:Get()
+        local centerX, centerY = camera.ViewportSize.X / 2, camera.ViewportSize.Y / 2
+        local maxDistance = wig.AimDistance:Get()
+        local localChar = getChar()
+        local localRoot = localChar and localChar:FindFirstChild("HumanoidRootPart")
+        for _, player in ipairs(Players:GetPlayers()) do
+            if player ~= LocalPlayer and player.Character then
+                local partName = wig.AimPart:Get()
+                local targetPart = player.Character:FindFirstChild(partName) or player.Character:FindFirstChild("HumanoidRootPart")
+                if targetPart then
+                    local humanoid = player.Character:FindFirstChildOfClass("Humanoid")
+                    if humanoid and humanoid.Health > 0 then
+                        if localRoot then
+                            local dist3D = (targetPart.Position - localRoot.Position).Magnitude
+                            if dist3D <= maxDistance then
+                                local screenPos, onScreen = camera:WorldToViewportPoint(targetPart.Position)
+                                if onScreen then
+                                    local dist2D = (Vector2.new(screenPos.X, screenPos.Y) - Vector2.new(centerX, centerY)).Magnitude
+                                    if dist2D < shortestDistance then
+                                        shortestDistance = dist2D
+                                        closestPlayer = player
+                                    end
+                                end
+                            end
+                        end
+                    end
+                end
+            end
+        end
+        return closestPlayer
+    end
+
+    local function equipGun()
+        local char = getChar()
+        local backpack = LocalPlayer:FindFirstChild("Backpack")
+        if not char or not backpack then return nil end
+        local gun = char:FindFirstChild("Gun")
+        if gun then return gun end
+        local bg = backpack:FindFirstChild("Gun")
+        if bg then
+            local humanoid = char:FindFirstChildOfClass("Humanoid")
+            if humanoid then humanoid:EquipTool(bg) return bg end
+        end
+        return nil
+    end
+
+    local function shootAt(targetPart)
+        local char = getChar()
+        if not char or not targetPart then return end
+        local gun = equipGun()
+        if not gun then return end
+        local myHrp = char:FindFirstChild("HumanoidRootPart")
+        if not myHrp then return end
+        local startCFrame = CFrame.lookAt(myHrp.Position, targetPart.Position)
+        local endCFrame = CFrame.new(targetPart.Position)
+        pcall(function() gun.Shoot:FireServer(startCFrame, endCFrame) end)
+    end
+
+    local function aimLoop()
+        if not wig.Aimbot:Get() then return end
+        local mode = wig.AimMode:Get()
+        if mode == "Hold Key" and not keybindPressed then return end
+        if mode == "Toggle Key" and not aimActive then return end
+        local target = getClosestPlayerInFOV()
+        if target and target.Character then
+            local partName = wig.AimPart:Get()
+            local targetPart = target.Character:FindFirstChild(partName) or target.Character:FindFirstChild("HumanoidRootPart")
+            if targetPart then
+                local smooth = wig.AimSmoothness:Get() / 10
+                local targetCFrame = CFrame.lookAt(camera.CFrame.Position, targetPart.Position)
+                camera.CFrame = camera.CFrame:Lerp(targetCFrame, 1 / smooth)
+                if wig.AimShoot:Get() then shootAt(targetPart) end
+            end
+        end
+    end
+
+    wig.Aimbot:OnChanged(function(value)
+        if value then
+            createFOVCircle()
+            aimActive = false
+            keybindPressed = false
+        else
+            if fovCircle then fovCircle:Destroy() fovCircle = nil end
+        end
+    end)
+
+    wig.AimFOV:OnChanged(function() updateFOVCircle() end)
+
+    runService.RenderStepped:Connect(function()
+        if wig.Aimbot:Get() then
+            updateFOVCircle()
+            aimLoop()
+        end
+    end)
     --========================================================--
 
     --========================================================--
-    --  VISUALS TAB (ESP)
+    --  VISUALS TAB — ESP + AURA + TRAILS + HAT + CURSOR + ASPECT
     --========================================================--
-    local vESP = tabs.Visuals:SectionCreate({ Name = "ESP", Side = "Left" })
-    local vOpt = tabs.Visuals:SectionCreate({ Name = "ESP Options", Side = "Right" })
+    local vESP    = tabs.Visuals:SectionCreate({ Name = "ESP", Side = "Left" })
+    local vOpt    = tabs.Visuals:SectionCreate({ Name = "ESP Options", Side = "Right" })
+    local vAura   = tabs.Visuals:SectionCreate({ Name = "Aura", Side = "Right" })
+    local vTrails = tabs.Visuals:SectionCreate({ Name = "Trails", Side = "Right" })
+    local vHat    = tabs.Visuals:SectionCreate({ Name = "China Hat", Side = "Left" })
+    local vCursor = tabs.Visuals:SectionCreate({ Name = "Custom Cursor", Side = "Right" })
+    local vAspect = tabs.Visuals:SectionCreate({ Name = "Aspect Ratio", Side = "Right" })
 
+    -- ESP
     local espColor = Color3.new(1, 1, 1)
     local espOpt = { name = true, displayName = false, health = true, box = true, glow = true, distance = true, tracers = false }
     local espObjects = {}
@@ -1184,9 +1185,7 @@ local function createFullUI()
 
     makeToggle(vESP, "esp", "Player ESP", "Show players", false, function()
         clearAllESP()
-        for _, p in ipairs(Players:GetPlayers()) do
-            if p ~= LocalPlayer then createESP(p) end
-        end
+        for _, p in ipairs(Players:GetPlayers()) do if p ~= LocalPlayer then createESP(p) end end
         espConn = RunService.RenderStepped:Connect(updateESP)
     end, function()
         if espConn then espConn:Disconnect() espConn = nil end
@@ -1212,10 +1211,711 @@ local function createFullUI()
         Id = "espColor", Name = "ESP Color", Default = Color3.new(1, 1, 1),
     })
     espColorPicker:OnChanged(function(c) espColor = c saveSettings() end)
-    --========================================================--
 
     --========================================================--
-    --  MOBILE TAB (improved floating button)
+    --  AURA
+    --========================================================--
+    do
+        local AURA_ASSET_ID = 106979401006635
+        local AURA_LIST = {
+            "Kurama", "Aether", "Anon", "Atomic", "Binary404",
+            "BlazingPinkHeart", "BlindObsession", "DarkRoger", "FireFist",
+            "FlameCrown", "FrozenBloom", "Purp", "RainbFlame",
+            "RedHeartFire", "RedWings", "RomanticBloom", "Saiyan",
+            "SnowFlakes", "SusanooArms", "Thund", "TimeKillingA",
+            "WaterBubbleTrio", "WhiteWings", "pumpk", "power drop aura",
+            "safe aura", "toxic aura",
+        }
+
+        local executorSupported = pcall(function() return game:GetObjects("rbxassetid://0") end)
+        if executorSupported then
+            wig.AuraToggle = vAura:ToggleCreate({
+                Id = "AuraToggle.Enabled", Name = "Enable Aura",
+                Description = "Applies aura from model pack", Default = false,
+            })
+            wig.AuraSelect = vAura:DropdownCreate({
+                Id = "AuraSelect.Aura", Name = "Select Aura", Options = AURA_LIST, Default = "Purp",
+            })
+            local auraColorSettings = wig.AuraToggle:CreateSettings({ Name = "Colors" })
+            wig.AuraCustomColor = auraColorSettings:ToggleCreate({
+                Id = "Aura.CustomColor", Name = "Use Custom Colors", Default = false,
+            })
+            wig.AuraColor1 = auraColorSettings:ColorPickerCreate({
+                Id = "Aura.Color1", Name = "Color 1", Default = Color3.fromRGB(255, 255, 255),
+            })
+            wig.AuraColor2 = auraColorSettings:ColorPickerCreate({
+                Id = "Aura.Color2", Name = "Color 2", Default = Color3.fromRGB(0, 0, 0),
+            })
+            wig.AuraColor3 = auraColorSettings:ColorPickerCreate({
+                Id = "Aura.Color3", Name = "Color 3", Default = Color3.fromRGB(100, 100, 100),
+            })
+
+            local auraEnabled = false
+            local selectedAura = "Purp"
+            local auraModelCache = nil
+            local currentAuraObjects = {}
+            local auraUpdateConn = nil
+
+            local function clearAura()
+                for _, obj in ipairs(currentAuraObjects) do
+                    if obj and obj.Parent then obj:Destroy() end
+                end
+                currentAuraObjects = {}
+                if auraUpdateConn then auraUpdateConn:Disconnect() auraUpdateConn = nil end
+            end
+
+            local function loadAuraModel()
+                local success, result = pcall(function()
+                    return game:GetObjects("rbxassetid://" .. tostring(AURA_ASSET_ID))
+                end)
+                if success and type(result) == "table" and #result > 0 then return result[1] end
+                return nil
+            end
+
+            local function getAuraModel()
+                if not auraModelCache then auraModelCache = loadAuraModel() end
+                return auraModelCache
+            end
+
+            local function applyCustomColors(instance)
+                local c1 = wig.AuraColor1:Get()
+                local c2 = wig.AuraColor2:Get()
+                local c3 = wig.AuraColor3:Get()
+                local colorSeq = ColorSequence.new({
+                    ColorSequenceKeypoint.new(0, c1),
+                    ColorSequenceKeypoint.new(0.5, c2),
+                    ColorSequenceKeypoint.new(1, c3),
+                })
+                for _, desc in ipairs(instance:GetDescendants()) do
+                    if desc:IsA("ParticleEmitter") then desc.Color = colorSeq
+                    elseif desc:IsA("Beam") then desc.Color = colorSeq
+                    elseif desc:IsA("Trail") then desc.Color = colorSeq
+                    elseif desc:IsA("PointLight") or desc:IsA("SpotLight") or desc:IsA("SurfaceLight") then desc.Color = c1
+                    elseif desc:IsA("Fire") or desc:IsA("Smoke") or desc:IsA("Sparkles") then desc.Color = c1
+                    elseif desc:IsA("Highlight") then desc.FillColor = c1 desc.OutlineColor = c2
+                    elseif desc:IsA("Decal") or desc:IsA("Texture") then desc.Color3 = c1
+                    end
+                end
+            end
+
+            local function applyAura()
+                clearAura()
+                if not auraEnabled then return end
+                local char = getChar()
+                local hrp = char and char:FindFirstChild("HumanoidRootPart")
+                if not char or not hrp then return end
+                local model = getAuraModel()
+                if not model then
+                    notify("Failed to load aura model", "Error")
+                    wig.AuraToggle:Set(false)
+                    return
+                end
+                local searchName = "Aura_" .. selectedAura
+                local auraObject = nil
+                for _, desc in ipairs(model:GetDescendants()) do
+                    if desc.Name == searchName then auraObject = desc break end
+                end
+                if not auraObject then
+                    for _, desc in ipairs(model:GetDescendants()) do
+                        if desc.Name:find(selectedAura) then auraObject = desc break end
+                    end
+                end
+                if not auraObject then
+                    notify("Aura not found in model", "Warning")
+                    wig.AuraToggle:Set(false)
+                    return
+                end
+                local bodyParts = {}
+                local function scanForParts(inst)
+                    for _, child in ipairs(inst:GetChildren()) do
+                        if child:IsA("BasePart") then table.insert(bodyParts, child) end
+                        scanForParts(child)
+                    end
+                end
+                scanForParts(auraObject)
+                if #bodyParts == 0 then bodyParts = { auraObject } end
+                local totalCloned = 0
+                for _, auraPart in ipairs(bodyParts) do
+                    local targetPart = char:FindFirstChild(auraPart.Name)
+                    if not targetPart and auraPart.Name == "Torso" then targetPart = char:FindFirstChild("UpperTorso") end
+                    if not targetPart and auraPart.Name == "UpperTorso" then targetPart = char:FindFirstChild("Torso") end
+                    if not targetPart then targetPart = hrp end
+                    for _, effect in ipairs(auraPart:GetChildren()) do
+                        if not effect:IsA("BasePart") then
+                            local clone = effect:Clone()
+                            for _, desc in ipairs(clone:GetDescendants()) do
+                                if desc:IsA("Sound") then desc:Destroy() end
+                            end
+                            if wig.AuraCustomColor:Get() then applyCustomColors(clone) end
+                            clone.Parent = targetPart
+                            table.insert(currentAuraObjects, clone)
+                            totalCloned += 1
+                        end
+                    end
+                end
+                auraUpdateConn = RunService.Heartbeat:Connect(function()
+                    if not auraEnabled or not getChar() then clearAura() end
+                end)
+                if totalCloned > 0 then notify("Applied: " .. selectedAura, "Success")
+                else
+                    notify("No effects found in this aura", "Warning")
+                    wig.AuraToggle:Set(false)
+                end
+            end
+
+            wig.AuraToggle:OnChanged(function(value) auraEnabled = value if value then applyAura() else clearAura() end end)
+            wig.AuraSelect:OnChanged(function(value) selectedAura = value if auraEnabled then applyAura() end end)
+            wig.AuraCustomColor:OnChanged(function() if auraEnabled then applyAura() end end)
+            wig.AuraColor1:OnChanged(function() if auraEnabled then applyAura() end end)
+            wig.AuraColor2:OnChanged(function() if auraEnabled then applyAura() end end)
+            wig.AuraColor3:OnChanged(function() if auraEnabled then applyAura() end end)
+            LocalPlayer.CharacterAdded:Connect(function()
+                task.wait(0.5)
+                if auraEnabled then applyAura() end
+            end)
+        end
+    end
+
+    --========================================================--
+    --  TRAILS
+    --========================================================--
+    do
+        wig.Trails = vTrails:ToggleCreate({
+            Id = "Trails", Name = "Trails", Description = "Trail effects on characters", Default = false,
+        })
+        local trailSettings = wig.Trails:CreateSettings({ Name = "Trail Settings" })
+        wig.TrailPreset = trailSettings:DropdownCreate({
+            Id = "Trails.Preset", Name = "Preset",
+            Options = { "Rainbow", "Fire", "Ice", "Galaxy", "Neon Pulse", "Blood", "Gold", "Toxic", "Ocean", "Void" },
+            Default = "Ocean",
+        })
+        wig.TrailWho = trailSettings:DropdownCreate({
+            Id = "Trails.Who", Name = "Apply To", Options = { "Only Me", "Everyone" }, Default = "Only Me",
+        })
+        wig.TrailLifetime = trailSettings:SliderCreate({
+            Id = "Trails.Lifetime", Name = "Lifetime", Min = 10, Max = 300, Default = 60,
+        })
+        wig.TrailThickness = trailSettings:SliderCreate({
+            Id = "Trails.Thickness", Name = "Thickness", Min = 5, Max = 100, Default = 30,
+        })
+
+        local trailConnections = {}
+        local activeTrails = {}
+        local rainbowThread = nil
+
+        local PRESETS = {
+            Rainbow = { mode = "rainbow" },
+            Fire = { color1 = Color3.fromRGB(255, 80, 0), color2 = Color3.fromRGB(255, 200, 0) },
+            Ice = { color1 = Color3.fromRGB(120, 220, 255), color2 = Color3.fromRGB(255, 255, 255) },
+            Galaxy = { color1 = Color3.fromRGB(120, 0, 255), color2 = Color3.fromRGB(0, 200, 255) },
+            ["Neon Pulse"] = { color1 = Color3.fromRGB(0, 255, 180), color2 = Color3.fromRGB(255, 0, 255) },
+            Blood = { color1 = Color3.fromRGB(140, 0, 0), color2 = Color3.fromRGB(255, 30, 30) },
+            Gold = { color1 = Color3.fromRGB(255, 200, 0), color2 = Color3.fromRGB(255, 255, 150) },
+            Toxic = { color1 = Color3.fromRGB(120, 255, 0), color2 = Color3.fromRGB(0, 80, 0) },
+            Ocean = { color1 = Color3.fromRGB(0, 120, 255), color2 = Color3.fromRGB(0, 255, 200) },
+            Void = { color1 = Color3.fromRGB(40, 0, 60), color2 = Color3.fromRGB(120, 0, 200) },
+        }
+
+        local function shouldApplyTo(p)
+            local who = wig.TrailWho:Get()
+            if who == "Everyone" then return true end
+            return p == LocalPlayer
+        end
+        local function getLifetime() return wig.TrailLifetime:Get() / 100 end
+        local function getThickness() return wig.TrailThickness:Get() / 100 end
+
+        local function removeTrail(p)
+            local data = activeTrails[p]
+            if not data then return end
+            for _, obj in ipairs(data) do if obj and obj.Parent then obj:Destroy() end end
+            activeTrails[p] = nil
+        end
+
+        local function applyTrail(p)
+            removeTrail(p)
+            if not wig.Trails:Get() then return end
+            if not shouldApplyTo(p) then return end
+            local character = p.Character
+            if not character then return end
+            local hrp = character:FindFirstChild("HumanoidRootPart")
+            if not hrp then return end
+            local a0 = Instance.new("Attachment") a0.Name = "TrailA0" a0.Position = Vector3.new(0, 0.5, 0) a0.Parent = hrp
+            local a1 = Instance.new("Attachment") a1.Name = "TrailA1" a1.Position = Vector3.new(0, -0.5, 0) a1.Parent = hrp
+            local presetName = wig.TrailPreset:Get()
+            local preset = PRESETS[presetName] or PRESETS.Ocean
+            local trail = Instance.new("Trail")
+            trail.Name = "CustomTrail"
+            trail.Attachment0 = a0
+            trail.Attachment1 = a1
+            trail.Lifetime = getLifetime()
+            trail.MinLength = 0.1
+            trail.LightEmission = 1
+            trail.LightInfluence = 0
+            trail.FaceCamera = true
+            trail.WidthScale = NumberSequence.new({
+                NumberSequenceKeypoint.new(0, 1),
+                NumberSequenceKeypoint.new(0.5, getThickness()),
+                NumberSequenceKeypoint.new(1, 0),
+            })
+            if preset.mode == "rainbow" then
+                trail.Color = ColorSequence.new(Color3.fromRGB(255, 0, 0))
+            else
+                trail.Color = ColorSequence.new({
+                    ColorSequenceKeypoint.new(0, preset.color1),
+                    ColorSequenceKeypoint.new(1, preset.color2),
+                })
+            end
+            trail.Parent = hrp
+            activeTrails[p] = { trail, a0, a1 }
+        end
+
+        local function refreshAllTrails()
+            for _, p in ipairs(Players:GetPlayers()) do applyTrail(p) end
+        end
+
+        local function startRainbow()
+            if rainbowThread then task.cancel(rainbowThread) rainbowThread = nil end
+            if not wig.Trails:Get() then return end
+            if wig.TrailPreset:Get() ~= "Rainbow" then return end
+            rainbowThread = task.spawn(function()
+                local hue = 0
+                while wig.Trails:Get() and wig.TrailPreset:Get() == "Rainbow" do
+                    hue = (hue + 0.01) % 1
+                    local color = Color3.fromHSV(hue, 1, 1)
+                    for _, data in pairs(activeTrails) do
+                        local trail = data[1]
+                        if trail and trail.Parent then trail.Color = ColorSequence.new(color) end
+                    end
+                    task.wait(0.05)
+                end
+            end)
+        end
+
+        local function watchTrailPlayer(p)
+            if p.Character then task.spawn(applyTrail, p) end
+            table.insert(trailConnections, p.CharacterAdded:Connect(function()
+                task.wait(0.5)
+                if wig.Trails:Get() then applyTrail(p) end
+            end))
+        end
+
+        wig.Trails:OnChanged(function(value)
+            if value then
+                for _, p in ipairs(Players:GetPlayers()) do watchTrailPlayer(p) end
+                table.insert(trailConnections, Players.PlayerAdded:Connect(watchTrailPlayer))
+                startRainbow()
+            else
+                for _, conn in ipairs(trailConnections) do if conn and conn.Disconnect then conn:Disconnect() end end
+                table.clear(trailConnections)
+                for _, p in ipairs(Players:GetPlayers()) do removeTrail(p) end
+                if rainbowThread then task.cancel(rainbowThread) rainbowThread = nil end
+            end
+        end)
+        wig.TrailPreset:OnChanged(function() if wig.Trails:Get() then refreshAllTrails() startRainbow() end end)
+        wig.TrailWho:OnChanged(function() if wig.Trails:Get() then refreshAllTrails() end end)
+        wig.TrailLifetime:OnChanged(function() if wig.Trails:Get() then refreshAllTrails() end end)
+        wig.TrailThickness:OnChanged(function() if wig.Trails:Get() then refreshAllTrails() end end)
+    end
+
+    --========================================================--
+    --  CHINA HAT
+    --========================================================--
+    do
+        wig.ChinaHat = vHat:ToggleCreate({
+            Id = "ChinaHat.Enabled", Name = "China Hat",
+            Description = "Adds Chinese hat on your head", Default = false,
+        })
+        local hatSettings = wig.ChinaHat:CreateSettings({ Name = "Hat Settings" })
+        wig.HatColor = hatSettings:ColorPickerCreate({
+            Id = "ChinaHat.Color", Name = "Color", Default = Color3.fromRGB(91, 101, 255),
+        })
+        wig.HatScale = hatSettings:SliderCreate({
+            Id = "ChinaHat.Scale", Name = "Scale (x0.01)", Min = 10, Max = 30, Default = 15,
+        })
+        wig.HatTransparency = hatSettings:SliderCreate({
+            Id = "ChinaHat.Transparency", Name = "Transparency (x0.01)", Min = 0, Max = 100, Default = 30,
+        })
+
+        local hatPart, hatMesh, hatUpdateConn
+
+        local function removeHat()
+            if hatPart and hatPart.Parent then hatPart:Destroy() end
+            hatPart, hatMesh = nil, nil
+            if hatUpdateConn then hatUpdateConn:Disconnect() hatUpdateConn = nil end
+        end
+
+        local function updateHat()
+            if not hatPart or not hatPart.Parent then return end
+            local char = getChar()
+            local head = char and char:FindFirstChild("Head")
+            if not head then return end
+            local scale = wig.HatScale:Get() / 100
+            hatPart.Size = Vector3.new(1, 1, 1)
+            hatMesh.Scale = Vector3.new(18 * scale, 4.5 * scale, 18 * scale)
+            local currentY = (head.Size.Y / 2) + (hatMesh.Scale.Y * 0.5) + 0.1
+            hatPart.CFrame = head.CFrame * CFrame.new(0, currentY, 0)
+        end
+
+        local function createHat()
+            removeHat()
+            if not wig.ChinaHat:Get() then return end
+            local char = getChar()
+            local head = char and char:FindFirstChild("Head")
+            if not head then return end
+            hatPart = Instance.new("Part")
+            hatPart.Name = "ChinaHatCone"
+            hatPart.Size = Vector3.new(1, 1, 1)
+            hatPart.Color = wig.HatColor:Get()
+            hatPart.Material = Enum.Material.Neon
+            hatPart.Transparency = wig.HatTransparency:Get() / 100
+            hatPart.Anchored = true
+            hatPart.CanCollide = false
+            hatPart.CanQuery = false
+            hatPart.CanTouch = false
+            hatPart.Massless = true
+            hatPart.CustomPhysicalProperties = PhysicalProperties.new(0, 0, 0, 0, 0)
+            hatMesh = Instance.new("SpecialMesh")
+            hatMesh.MeshId = "rbxassetid://1778999"
+            hatMesh.Scale = Vector3.new(18, 4.5, 18)
+            hatMesh.Parent = hatPart
+            hatPart.Parent = char
+            updateHat()
+            hatUpdateConn = RunService.Heartbeat:Connect(function()
+                if not wig.ChinaHat:Get() then
+                    if hatUpdateConn then hatUpdateConn:Disconnect() hatUpdateConn = nil end
+                    return
+                end
+                updateHat()
+            end)
+        end
+
+        wig.ChinaHat:OnChanged(function(value) if value then createHat() else removeHat() end end)
+        wig.HatColor:OnChanged(function() if hatPart then hatPart.Color = wig.HatColor:Get() end end)
+        wig.HatScale:OnChanged(function() updateHat() end)
+        wig.HatTransparency:OnChanged(function() if hatPart then hatPart.Transparency = wig.HatTransparency:Get() / 100 end end)
+        LocalPlayer.CharacterAdded:Connect(function()
+            task.wait(0.5)
+            if wig.ChinaHat:Get() then createHat() end
+        end)
+    end
+
+    --========================================================--
+    --  CUSTOM CURSOR
+    --========================================================--
+    do
+        local DEFAULT_CURSOR = "Crosshair"
+        local CURSOR_SHAPES = {
+            { "Dot", "Dot" }, { "Ring", "Ring" }, { "Crosshair", "Cross" },
+            { "Gap", "Gap Cross" }, { "GapDot", "Gap Dot" }, { "RingDot", "Ring Dot" },
+            { "Diag", "Diagonal" }, { "Brackets", "Brackets" }, { "Tri", "Tri" },
+            { "Diamond", "Diamond" }, { "Square", "Square" }, { "Heart", "Heart" }, { "PP", "PP" },
+        }
+        local cursorState = {
+            gui = nil, frame = nil, scale = nil, parts = {},
+            rotation = 0, clickAt = -9, hidden = false,
+            settings = {
+                cursor = DEFAULT_CURSOR, cursorSize = 100, cursorFade = 0,
+                cursorOutline = true, cursorRainbow = false, cursorRainbowSpd = 3,
+                cursorPulse = false, cursorPulseSpd = 3, cursorPulseAmt = 20,
+                cursorSpin = false, cursorSpinSpd = 180, cursorSpinRev = false,
+                cursorClick = false, cursorClickAmt = 30,
+                cursorR = 255, cursorG = 255, cursorB = 255,
+            },
+        }
+
+        local function element(parent, x, y, w, h, rotation, rounded, zIndex)
+            local frame = Instance.new("Frame")
+            frame.BorderSizePixel = 0
+            frame.AnchorPoint = Vector2.new(0.5, 0.5)
+            frame.Position = UDim2.new(0.5, x, 0.5, y)
+            frame.Size = UDim2.fromOffset(w, h)
+            frame.Rotation = rotation or 0
+            frame.ZIndex = zIndex or 3
+            frame.BackgroundColor3 = Color3.new(1, 1, 1)
+            if rounded then
+                local c = Instance.new("UICorner")
+                c.CornerRadius = UDim.new(rounded, 0)
+                c.Parent = frame
+            end
+            frame.Parent = parent
+            return frame
+        end
+
+        local function drawShape(parent, shape)
+            for _, child in ipairs(parent:GetChildren()) do
+                if not child:IsA("UIScale") then child:Destroy() end
+            end
+            local parts = {}
+            local function fill(x, y, w, h, rotation, rounded, noOutline)
+                local outline
+                if not noOutline then
+                    outline = element(parent, x, y, w + 2, h + 2, rotation, rounded, 2)
+                    outline.BackgroundColor3 = Color3.new(0, 0, 0)
+                end
+                local frame = element(parent, x, y, w, h, rotation, rounded, 3)
+                table.insert(parts, { kind = "fill", frame = frame, outline = outline })
+            end
+            local function ring(x, y, size, thickness, rotation, square)
+                local rounded = not square and 0.5 or nil
+                local outline = element(parent, x, y, size - 2, size - 2, rotation, rounded, 2)
+                outline.BackgroundTransparency = 1
+                local outerStroke = Instance.new("UIStroke")
+                outerStroke.Color = Color3.new(0, 0, 0)
+                outerStroke.Thickness = thickness + 2
+                outerStroke.Parent = outline
+                local frame = element(parent, x, y, size, size, rotation, rounded, 3)
+                frame.BackgroundTransparency = 1
+                local stroke = Instance.new("UIStroke")
+                stroke.Thickness = thickness
+                stroke.Parent = frame
+                table.insert(parts, { kind = "ring", frame = frame, stroke = stroke, outline = outline, outerStroke = outerStroke })
+            end
+            if shape == "Dot" then fill(0, 0, 6, 6, 0, 0.5) end
+            if shape == "Ring" then ring(0, 0, 14, 2) end
+            if shape == "Crosshair" then fill(0, 0, 18, 2) fill(0, 0, 2, 18) end
+            if shape == "Gap" or shape == "GapDot" then
+                fill(7, 0, 8, 2) fill(-7, 0, 8, 2) fill(0, 7, 2, 8) fill(0, -7, 2, 8)
+                if shape == "GapDot" then fill(0, 0, 2, 2) end
+            end
+            if shape == "RingDot" then ring(0, 0, 16, 2) fill(0, 0, 4, 4, 0, 0.5) end
+            if shape == "Diag" then
+                fill(5, 5, 8, 2, 45) fill(-5, -5, 8, 2, 45) fill(5, -5, 8, 2, -45) fill(-5, 5, 8, 2, -45)
+            end
+            if shape == "Brackets" then
+                for _, x in ipairs({ -1, 1 }) do
+                    for _, y in ipairs({ -1, 1 }) do
+                        fill(x * 7, y * 9, 6, 2) fill(x * 9, y * 7, 2, 6)
+                    end
+                end
+                fill(0, 0, 2, 2)
+            end
+            if shape == "Tri" then fill(0, -8, 8, 2, 90) fill(7, 4, 8, 2, 30) fill(-7, 4, 8, 2, 150) end
+            if shape == "Diamond" then ring(0, 0, 12, 2, 45, true) end
+            if shape == "Square" then ring(0, 0, 14, 2, 0, true) fill(0, 0, 2, 2) end
+            if shape == "Heart" then
+                fill(-4, -3, 10, 10, 0, 0.5, true) fill(4, -3, 10, 10, 0, 0.5, true) fill(0, 2, 12, 12, 45, nil, true)
+            end
+            if shape == "PP" then
+                fill(0, -2, 8, 22, 0, 1, true) fill(0, -14, 10, 10, 0, 1, true)
+                fill(-5, 10, 8, 8, 0, 1, true) fill(5, 10, 8, 8, 0, 1, true)
+            end
+            return parts
+        end
+
+        local function paintParts(parts, color, fade, showOutline)
+            for _, part in ipairs(parts or {}) do
+                if part.kind == "fill" then
+                    part.frame.BackgroundColor3 = color
+                    part.frame.BackgroundTransparency = fade
+                    if part.outline then
+                        part.outline.Visible = showOutline
+                        part.outline.BackgroundTransparency = 1 - (1 - fade) * 0.4
+                    end
+                elseif part.kind == "ring" then
+                    part.stroke.Color = color
+                    part.stroke.Transparency = fade
+                    part.outline.Visible = showOutline
+                    part.outerStroke.Transparency = 1 - (1 - fade) * 0.4
+                end
+            end
+        end
+
+        local function color(now)
+            local s = cursorState.settings
+            if s.cursorRainbow then return Color3.fromHSV(now * (tonumber(s.cursorRainbowSpd) or 3) * 0.06 % 1, 0.8, 1) end
+            return Color3.fromRGB(tonumber(s.cursorR) or 255, tonumber(s.cursorG) or 255, tonumber(s.cursorB) or 255)
+        end
+
+        local function scaleValue(now, clicked, base)
+            local s, value = cursorState.settings, base
+            if s.cursorPulse then
+                local speed = (tonumber(s.cursorPulseSpd) or 3) * 0.35
+                value = value * (1 + math.clamp((tonumber(s.cursorPulseAmt) or 20) / 100, 0, 1) * math.sin(now * speed * math.pi * 2))
+            end
+            local elapsed = now - clicked
+            if s.cursorClick and elapsed >= 0 and elapsed < 0.24 then
+                value = value * (1 - math.clamp((tonumber(s.cursorClickAmt) or 30) / 100, 0, 0.9) * math.sin(elapsed / 0.24 * math.pi))
+            end
+            return math.max(value, 0.05)
+        end
+
+        local function ensureGui()
+            if cursorState.gui and cursorState.gui.Parent then return end
+            local gui = Instance.new("ScreenGui")
+            gui.Name = "OnrushaCursor"
+            gui.ResetOnSpawn = false
+            gui.DisplayOrder = 2147483000
+            gui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
+            gui.IgnoreGuiInset = true
+            pcall(function() gui.Parent = CoreGui end)
+            if not gui.Parent then
+                pcall(function() gui.Parent = PlayerGui end)
+                gui.DisplayOrder = 999999
+            end
+            local frame = Instance.new("Frame")
+            frame.Name = "K"
+            frame.BackgroundTransparency = 1
+            frame.AnchorPoint = Vector2.new(0.5, 0.5)
+            frame.Size = UDim2.fromOffset(64, 64)
+            frame.Visible = false
+            frame.Parent = gui
+            local scale = Instance.new("UIScale")
+            scale.Parent = frame
+            cursorState.gui, cursorState.frame, cursorState.scale = gui, frame, scale
+        end
+
+        local function build()
+            ensureGui()
+            cursorState.parts = drawShape(cursorState.frame, cursorState.settings.cursor)
+            paintParts(cursorState.parts, color(os.clock()), cursorState.settings.cursorFade / 100, cursorState.settings.cursorOutline ~= false)
+        end
+
+        local function hideNative(hidden)
+            if hidden then
+                cursorState.hidden = true
+                pcall(function() UserInputService.MouseIconEnabled = false end)
+            else
+                if cursorState.hidden then
+                    cursorState.hidden = false
+                    pcall(function() UserInputService.MouseIconEnabled = true end)
+                end
+            end
+        end
+
+        local function applyState()
+            local s = cursorState.settings
+            if not wig.CustomCursor:Get() then
+                if cursorState.gui then cursorState.gui:Destroy() cursorState.gui = nil cursorState.frame = nil cursorState.scale = nil end
+                cursorState.parts = {}
+                hideNative(false)
+                return
+            end
+            if s.cursor == "Off" then
+                if cursorState.gui then cursorState.gui.Enabled = false end
+                cursorState.parts = {}
+                hideNative(false)
+                return
+            end
+            ensureGui()
+            if cursorState.gui then cursorState.gui.Enabled = true end
+            build()
+            hideNative(true)
+        end
+
+        local styleOptions = { "Off" }
+        for _, item in ipairs(CURSOR_SHAPES) do table.insert(styleOptions, item[1] .. " - " .. item[2]) end
+
+        local function parseOption(raw)
+            if type(raw) ~= "string" then return "Off" end
+            if raw == "Off" then return "Off" end
+            local short = raw:match("^(%S+)%s%-%s")
+            return short or raw
+        end
+
+        wig.CustomCursor = vCursor:ToggleCreate({
+            Id = "CustomCursor.Enabled", Name = "Custom Cursor",
+            Description = "Replace the default cursor", Default = false,
+        })
+        local cursorSettings = wig.CustomCursor:CreateSettings({ Name = "Cursor Settings" })
+        wig.CursorStyle = cursorSettings:DropdownCreate({
+            Id = "CustomCursor.Style", Name = "Cursor", Options = styleOptions,
+            Default = DEFAULT_CURSOR .. " - Cross",
+        })
+        wig.CursorSize = cursorSettings:SliderCreate({
+            Id = "CustomCursor.Size", Name = "Size", Min = 40, Max = 300, Default = 100,
+        })
+        wig.CursorFade = cursorSettings:SliderCreate({
+            Id = "CustomCursor.Fade", Name = "Transparency", Min = 0, Max = 90, Default = 0,
+        })
+        wig.CursorColor = cursorSettings:ColorPickerCreate({
+            Id = "CustomCursor.Color", Name = "Color", Default = Color3.fromRGB(255, 255, 255),
+        })
+        wig.CursorOutline = cursorSettings:ToggleCreate({
+            Id = "CustomCursor.Outline", Name = "Outline", Default = true,
+        })
+        wig.CursorRainbow = cursorSettings:ToggleCreate({
+            Id = "CustomCursor.Rainbow", Name = "Rainbow", Default = false,
+        })
+
+        wig.CursorStyle:OnChanged(function(value) cursorState.settings.cursor = parseOption(value) applyState() end)
+        wig.CursorSize:OnChanged(function(value) cursorState.settings.cursorSize = value if cursorState.frame then cursorState.scale.Scale = value / 100 end end)
+        wig.CursorFade:OnChanged(function(value) cursorState.settings.cursorFade = value if wig.CustomCursor:Get() and cursorState.frame then build() end end)
+        wig.CursorColor:OnChanged(function(value)
+            cursorState.settings.cursorR = math.floor(value.R * 255 + 0.5)
+            cursorState.settings.cursorG = math.floor(value.G * 255 + 0.5)
+            cursorState.settings.cursorB = math.floor(value.B * 255 + 0.5)
+            if wig.CustomCursor:Get() and cursorState.frame then build() end
+        end)
+        wig.CursorOutline:OnChanged(function(value) cursorState.settings.cursorOutline = value if wig.CustomCursor:Get() and cursorState.frame then build() end end)
+        wig.CursorRainbow:OnChanged(function(value) cursorState.settings.cursorRainbow = value end)
+        wig.CustomCursor:OnChanged(function() applyState() end)
+
+        track(UserInputService.InputBegan:Connect(function(input)
+            if input.UserInputType == Enum.UserInputType.MouseButton1 then cursorState.clickAt = os.clock() end
+        end))
+
+        track(RunService.RenderStepped:Connect(function()
+            if not wig.CustomCursor:Get() or cursorState.settings.cursor == "Off" then return end
+            if not cursorState.frame then return end
+            local s = cursorState.settings
+            local now = os.clock()
+            pcall(function() UserInputService.MouseIconEnabled = false end)
+            if s.cursorSpin then
+                cursorState.rotation = (cursorState.rotation + (1 / 60) * (tonumber(s.cursorSpinSpd) or 180) * (s.cursorSpinRev and -1 or 1)) % 360
+            else
+                cursorState.rotation = 0
+            end
+            local mouseEnabled = UserInputService.MouseEnabled
+            cursorState.frame.Visible = mouseEnabled
+            if not mouseEnabled then return end
+            local location = UserInputService:GetMouseLocation()
+            cursorState.frame.Position = UDim2.fromOffset(location.X, location.Y)
+            cursorState.frame.Rotation = cursorState.rotation
+            cursorState.scale.Scale = scaleValue(now, cursorState.clickAt, math.clamp((tonumber(s.cursorSize) or 100) / 100, 0.2, 4))
+            if s.cursorRainbow then
+                paintParts(cursorState.parts, color(now), s.cursorFade / 100, s.cursorOutline ~= false)
+            end
+        end))
+
+        applyState()
+    end
+
+    --========================================================--
+    --  ASPECT RATIO
+    --========================================================--
+    do
+        local aspectState = { enabled = false, resolution = 0.80, conn = nil }
+
+        local function apply()
+            local cam = workspace.CurrentCamera
+            if not cam or not aspectState.enabled then return end
+            local res = math.clamp(aspectState.resolution, 0.1, 5.0)
+            cam.CFrame = cam.CFrame * CFrame.new(0, 0, 0, 1, 0, 0, 0, res, 0, 0, 0, 1)
+        end
+
+        wig.AspectRatio = vAspect:ToggleCreate({
+            Id = "AspectRatio.Enabled", Name = "Aspect Ratio",
+            Description = "Stretches or squishes the screen", Default = false,
+        })
+        local aspectSettings = wig.AspectRatio:CreateSettings({ Name = "Settings" })
+        wig.AspectRatioValue = aspectSettings:SliderCreate({
+            Id = "AspectRatio.Value", Name = "Resolution (x0.01) [100=normal]",
+            Min = 20, Max = 200, Default = 80,
+        })
+
+        wig.AspectRatio:OnChanged(function(value)
+            aspectState.enabled = value == true
+            if value then
+                if not aspectState.conn then aspectState.conn = RunService.RenderStepped:Connect(apply) end
+            else
+                if aspectState.conn then aspectState.conn:Disconnect() aspectState.conn = nil end
+            end
+        end)
+        wig.AspectRatioValue:OnChanged(function(value) aspectState.resolution = math.clamp(value / 100, 0.1, 5.0) end)
+    end
+
+    --========================================================--
+    --  MOBILE TAB (beautiful floating button)
     --========================================================--
     local mobSec  = tabs.Mobile:SectionCreate({ Name = "Mobile Controls", Side = "Left" })
     local mobInfo = tabs.Mobile:SectionCreate({ Name = "Info", Side = "Right" })
@@ -1226,7 +1926,6 @@ local function createFullUI()
     MobileGui.DisplayOrder = 20
     MobileGui.Parent = (gethui and gethui()) or CoreGui
 
-    -- Красивая круглая кнопка с градиентом и свечением
     local floatingBtn = Instance.new("TextButton")
     floatingBtn.Name = "FloatingButton"
     floatingBtn.Size = UDim2.new(0, 64, 0, 64)
@@ -1264,13 +1963,11 @@ local function createFullUI()
     fbScale.Scale = getNum("mobileBtnScale", 1)
     fbScale.Parent = floatingBtn
 
-    -- Мягкое свечение (пульс)
     local pulseTween = TweenService:Create(fbStroke,
         TweenInfo.new(1.2, Enum.EasingStyle.Sine, Enum.EasingDirection.InOut, -1, true),
         { Transparency = 0.7 })
     pulseTween:Play()
 
-    -- Попап с кнопками
     local popup = Instance.new("Frame")
     popup.Name = "Popup"
     popup.Size = UDim2.new(0, 200, 0, 360)
@@ -1290,14 +1987,6 @@ local function createFullUI()
     popupStroke.Color = Color3.fromRGB(255, 255, 255)
     popupStroke.Transparency = 0.5
     popupStroke.Parent = popup
-
-    local popupGradient = Instance.new("UIGradient")
-    popupGradient.Color = ColorSequence.new({
-        ColorSequenceKeypoint.new(0, Color3.fromRGB(30, 30, 40)),
-        ColorSequenceKeypoint.new(1, Color3.fromRGB(15, 15, 22)),
-    })
-    popupGradient.Rotation = 90
-    popupGradient.Parent = popup
 
     local popupLayout = Instance.new("UIListLayout")
     popupLayout.Parent = popup
@@ -1370,7 +2059,6 @@ local function createFullUI()
         if hum then hum.Health = 0 end
     end)
 
-    -- Перетаскивание кнопки
     local dragging, dragStart, startPos, dragInput = false, nil, nil, nil
     floatingBtn.InputBegan:Connect(function(input)
         if input.UserInputType == Enum.UserInputType.Touch
@@ -1401,7 +2089,6 @@ local function createFullUI()
         end
     end)
 
-    -- Открытие/закрытие попапа по клику
     floatingBtn.MouseButton1Click:Connect(function()
         popup.Visible = not popup.Visible
         if popup.Visible then
@@ -1411,7 +2098,6 @@ local function createFullUI()
         end
     end)
 
-    -- Toggle в настройках
     makeToggle(mobSec, "mobileToggle", "Show Floating Button", "Toggle on-screen menu", false, function()
         floatingBtn.Visible = true
         pulseTween:Play()
@@ -1421,7 +2107,6 @@ local function createFullUI()
         pulseTween:Cancel()
     end)
 
-    -- Масштаб кнопки
     makeSlider(mobSec, "mobileBtnScale", "Button Scale (x0.01)", nil, 50, 200, 100, "", function(v)
         fbScale.Scale = v / 100
     end)
