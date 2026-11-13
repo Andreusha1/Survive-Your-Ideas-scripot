@@ -12,6 +12,7 @@ local VirtualUser       = game:GetService("VirtualUser")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local Lighting          = game:GetService("Lighting")
 local CoreGui           = game:GetService("CoreGui")
+local TweenService      = game:GetService("TweenService")
 
 local LocalPlayer = Players.LocalPlayer
 local Mouse       = LocalPlayer:GetMouse()
@@ -205,8 +206,8 @@ local function createLobbyUI()
     end)
     --========================================================--
 
-     --========================================================--
-    --  AUTO BEST ITEMS (no prints)
+    --========================================================--
+    --  AUTO BEST ITEMS
     --========================================================--
     local function getItemLibrary()
         local itemsFolder = ReplicatedStorage:FindFirstChild("Items")
@@ -1214,7 +1215,7 @@ local function createFullUI()
     --========================================================--
 
     --========================================================--
-    --  MOBILE TAB
+    --  MOBILE TAB (improved floating button)
     --========================================================--
     local mobSec  = tabs.Mobile:SectionCreate({ Name = "Mobile Controls", Side = "Left" })
     local mobInfo = tabs.Mobile:SectionCreate({ Name = "Info", Side = "Right" })
@@ -1225,64 +1226,127 @@ local function createFullUI()
     MobileGui.DisplayOrder = 20
     MobileGui.Parent = (gethui and gethui()) or CoreGui
 
+    -- Красивая круглая кнопка с градиентом и свечением
     local floatingBtn = Instance.new("TextButton")
-    floatingBtn.Size = UDim2.new(0, 56, 0, 56)
-    floatingBtn.Position = UDim2.new(0, 16, 0.5, -28)
-    floatingBtn.BackgroundColor3 = Color3.fromRGB(20, 20, 20)
+    floatingBtn.Name = "FloatingButton"
+    floatingBtn.Size = UDim2.new(0, 64, 0, 64)
+    floatingBtn.Position = UDim2.new(0, 20, 0.5, -32)
+    floatingBtn.AnchorPoint = Vector2.new(0, 0.5)
+    floatingBtn.BackgroundColor3 = Color3.fromRGB(24, 24, 32)
     floatingBtn.BackgroundTransparency = 0.05
     floatingBtn.Text = "☰"
-    floatingBtn.TextSize = 24
+    floatingBtn.TextSize = 28
     floatingBtn.TextColor3 = Color3.new(1, 1, 1)
     floatingBtn.Font = Enum.Font.GothamBold
+    floatingBtn.AutoButtonColor = false
     floatingBtn.Visible = false
     floatingBtn.Parent = MobileGui
+
     local fbCorner = Instance.new("UICorner")
     fbCorner.CornerRadius = UDim.new(1, 0)
     fbCorner.Parent = floatingBtn
+
+    local fbGradient = Instance.new("UIGradient")
+    fbGradient.Color = ColorSequence.new({
+        ColorSequenceKeypoint.new(0, Color3.fromRGB(60, 60, 80)),
+        ColorSequenceKeypoint.new(1, Color3.fromRGB(20, 20, 30)),
+    })
+    fbGradient.Rotation = 45
+    fbGradient.Parent = floatingBtn
+
     local fbStroke = Instance.new("UIStroke")
-    fbStroke.Thickness = 2.5
-    fbStroke.Color = Color3.new(1, 1, 1)
-    fbStroke.Transparency = 0.1
+    fbStroke.Thickness = 2
+    fbStroke.Color = Color3.fromRGB(255, 255, 255)
+    fbStroke.Transparency = 0.3
     fbStroke.Parent = floatingBtn
 
+    local fbScale = Instance.new("UIScale")
+    fbScale.Scale = getNum("mobileBtnScale", 1)
+    fbScale.Parent = floatingBtn
+
+    -- Мягкое свечение (пульс)
+    local pulseTween = TweenService:Create(fbStroke,
+        TweenInfo.new(1.2, Enum.EasingStyle.Sine, Enum.EasingDirection.InOut, -1, true),
+        { Transparency = 0.7 })
+    pulseTween:Play()
+
+    -- Попап с кнопками
     local popup = Instance.new("Frame")
-    popup.Size = UDim2.new(0, 180, 0, 320)
-    popup.Position = UDim2.new(0, 80, 0.5, -160)
-    popup.BackgroundColor3 = Color3.fromRGB(18, 18, 22)
-    popup.BackgroundTransparency = 0.05
+    popup.Name = "Popup"
+    popup.Size = UDim2.new(0, 200, 0, 360)
+    popup.Position = UDim2.new(0, 96, 0.5, -180)
+    popup.BackgroundColor3 = Color3.fromRGB(18, 18, 24)
+    popup.BackgroundTransparency = 0.02
     popup.BorderSizePixel = 0
     popup.Visible = false
     popup.Parent = MobileGui
+
     local popupCorner = Instance.new("UICorner")
-    popupCorner.CornerRadius = UDim.new(0, 10)
+    popupCorner.CornerRadius = UDim.new(0, 14)
     popupCorner.Parent = popup
 
-    local function makePopupBtn(label, onClick)
-        local b = Instance.new("TextButton")
-        b.Size = UDim2.new(1, -12, 0, 32)
-        b.BackgroundColor3 = Color3.fromRGB(35, 35, 42)
-        b.Text = label
-        b.TextColor3 = Color3.new(1, 1, 1)
-        b.TextSize = 12
-        b.Font = Enum.Font.GothamBold
-        b.BorderSizePixel = 0
-        b.Parent = popup
-        local c = Instance.new("UICorner")
-        c.CornerRadius = UDim.new(0, 6)
-        c.Parent = b
-        b.MouseButton1Click:Connect(onClick)
-        return b
-    end
+    local popupStroke = Instance.new("UIStroke")
+    popupStroke.Thickness = 1.5
+    popupStroke.Color = Color3.fromRGB(255, 255, 255)
+    popupStroke.Transparency = 0.5
+    popupStroke.Parent = popup
+
+    local popupGradient = Instance.new("UIGradient")
+    popupGradient.Color = ColorSequence.new({
+        ColorSequenceKeypoint.new(0, Color3.fromRGB(30, 30, 40)),
+        ColorSequenceKeypoint.new(1, Color3.fromRGB(15, 15, 22)),
+    })
+    popupGradient.Rotation = 90
+    popupGradient.Parent = popup
 
     local popupLayout = Instance.new("UIListLayout")
     popupLayout.Parent = popup
     popupLayout.Padding = UDim.new(0, 6)
     popupLayout.SortOrder = Enum.SortOrder.LayoutOrder
+    popupLayout.HorizontalAlignment = Enum.HorizontalAlignment.Center
+
     local popupPad = Instance.new("UIPadding")
     popupPad.Parent = popup
-    popupPad.PaddingTop = UDim.new(0, 8)
-    popupPad.PaddingLeft = UDim.new(0, 6)
-    popupPad.PaddingRight = UDim.new(0, 6)
+    popupPad.PaddingTop = UDim.new(0, 10)
+    popupPad.PaddingLeft = UDim.new(0, 8)
+    popupPad.PaddingRight = UDim.new(0, 8)
+    popupPad.PaddingBottom = UDim.new(0, 10)
+
+    local function makePopupBtn(label, onClick)
+        local b = Instance.new("TextButton")
+        b.Size = UDim2.new(1, 0, 0, 34)
+        b.BackgroundColor3 = Color3.fromRGB(40, 40, 52)
+        b.BackgroundTransparency = 0.05
+        b.Text = label
+        b.TextColor3 = Color3.new(1, 1, 1)
+        b.TextSize = 13
+        b.Font = Enum.Font.GothamBold
+        b.BorderSizePixel = 0
+        b.AutoButtonColor = false
+        b.Parent = popup
+        local c = Instance.new("UICorner")
+        c.CornerRadius = UDim.new(0, 8)
+        c.Parent = b
+        local s = Instance.new("UIStroke")
+        s.Thickness = 1
+        s.Color = Color3.fromRGB(255, 255, 255)
+        s.Transparency = 0.85
+        s.Parent = b
+        b.MouseEnter:Connect(function()
+            TweenService:Create(b, TweenInfo.new(0.15), {
+                BackgroundColor3 = Color3.fromRGB(60, 60, 80),
+                BackgroundTransparency = 0,
+            }):Play()
+        end)
+        b.MouseLeave:Connect(function()
+            TweenService:Create(b, TweenInfo.new(0.15), {
+                BackgroundColor3 = Color3.fromRGB(40, 40, 52),
+                BackgroundTransparency = 0.05,
+            }):Play()
+        end)
+        b.MouseButton1Click:Connect(onClick)
+        return b
+    end
 
     local function toggleFeature(id)
         local f = features[id]
@@ -1306,20 +1370,65 @@ local function createFullUI()
         if hum then hum.Health = 0 end
     end)
 
-    floatingBtn.MouseButton1Click:Connect(function()
-        popup.Visible = not popup.Visible
+    -- Перетаскивание кнопки
+    local dragging, dragStart, startPos, dragInput = false, nil, nil, nil
+    floatingBtn.InputBegan:Connect(function(input)
+        if input.UserInputType == Enum.UserInputType.Touch
+            or input.UserInputType == Enum.UserInputType.MouseButton1 then
+            dragging = true
+            dragInput = input
+            dragStart = input.Position
+            startPos = floatingBtn.Position
+        end
+    end)
+    UserInputService.InputChanged:Connect(function(input)
+        if not dragging then return end
+        local isMove = input.UserInputType == Enum.UserInputType.MouseMovement
+        local isTouch = input.UserInputType == Enum.UserInputType.Touch and input == dragInput
+        if isMove or isTouch then
+            local d = input.Position - dragStart
+            floatingBtn.Position = UDim2.new(
+                startPos.X.Scale, startPos.X.Offset + d.X,
+                startPos.Y.Scale, startPos.Y.Offset + d.Y
+            )
+        end
+    end)
+    UserInputService.InputEnded:Connect(function(input)
+        if input.UserInputType == Enum.UserInputType.Touch
+            or input.UserInputType == Enum.UserInputType.MouseButton1 then
+            dragging = false
+            dragInput = nil
+        end
     end)
 
+    -- Открытие/закрытие попапа по клику
+    floatingBtn.MouseButton1Click:Connect(function()
+        popup.Visible = not popup.Visible
+        if popup.Visible then
+            TweenService:Create(fbStroke, TweenInfo.new(0.2), { Transparency = 0 }):Play()
+        else
+            TweenService:Create(fbStroke, TweenInfo.new(0.2), { Transparency = 0.3 }):Play()
+        end
+    end)
+
+    -- Toggle в настройках
     makeToggle(mobSec, "mobileToggle", "Show Floating Button", "Toggle on-screen menu", false, function()
         floatingBtn.Visible = true
+        pulseTween:Play()
     end, function()
         floatingBtn.Visible = false
         popup.Visible = false
+        pulseTween:Cancel()
+    end)
+
+    -- Масштаб кнопки
+    makeSlider(mobSec, "mobileBtnScale", "Button Scale (x0.01)", nil, 50, 200, 100, "", function(v)
+        fbScale.Scale = v / 100
     end)
 
     mobInfo:LabelCreate({
         Id = "mobileInfoLabel", Name = "Info",
-        Text = "Floating button: Fly, Speed, Noclip, Aimbot, ESP, Anti-Ragdoll, TP Platform, Reset.",
+        Text = "Floating button: drag to move. Scale slider above. Tap to toggle menu.",
     })
     --========================================================--
 
@@ -1404,4 +1513,16 @@ track(LocalPlayer.CharacterAdded:Connect(function()
         createLobbyUI()
     end
 end))
+
+--========================================================--
+--  AUTO-EXEC ON TELEPORT (queue_on_teleport)
+--========================================================--
+if queue_on_teleport then
+    pcall(function()
+        queue_on_teleport([[
+            wait(0.5)
+            loadstring(game:HttpGet("https://raw.githubusercontent.com/Andreusha1/Survive-Your-Ideas-scripot/refs/heads/main/script"))()
+        ]])
+    end)
+end
 --========================================================--
