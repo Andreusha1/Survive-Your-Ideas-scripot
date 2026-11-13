@@ -1,11 +1,14 @@
 --========================================================--
 --  Onrusha Hub — Survive Your Ideas
 --========================================================--
-local TARGET_PLACE_ID = 77900175935766
+local TARGET_PLACE_IDS = {
+    [77900175935766] = true,   -- Lobby
+    [109001332046330] = true,  -- Match
+}
 local HUB_NAME        = "Onrusha Hub"
 local STATE_KEY       = "OnrushaHubState"
 
-if game.PlaceId ~= TARGET_PLACE_ID then
+if not TARGET_PLACE_IDS[game.PlaceId] then
     return warn("[Onrusha Hub] Not in Survive Your Ideas. Script aborted.")
 end
 
